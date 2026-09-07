@@ -41,7 +41,8 @@ try {
         && is_array($metadata)
         && $metadata['name'] === 'dbsdns'
         && $metadata['version'] === $version
-        && $metadata['ispconfig_version'] === '3.3',
+        && $metadata['ispconfig_version'] === '3.3'
+        && $metadata['link'] === 'https://github.com/rkstraessler/RK_ISP_DBS_DNS_Extension',
         'Version oder ISPConfig-Repository-Metadaten sind inkonsistent.'
     );
     releaseMetadataAssertTrue(
@@ -82,9 +83,12 @@ try {
     releaseMetadataAssertTrue(
         is_file($workflowPath)
         && count($workflowFiles) === 1
+        && strpos($workflow, 'workflow_dispatch:') !== false
         && strpos($workflow, 'release:') !== false
         && strpos($workflow, 'published') !== false
         && strpos($workflow, 'git archive --format=tar HEAD') !== false
+        && strpos($workflow, 'latest_package_name="${EXTENSION_NAME}.pkg"') !== false
+        && strpos($workflow, 'SHA256SUMS') !== false
         && strpos($workflow, 'gh release upload') !== false
         && strpos($workflow, 'scripts/build-release.sh') === false
         && !is_file($root . '/scripts/build-release.sh'),
@@ -114,6 +118,7 @@ try {
         '## Voraussetzungen / unterstützte ISPConfig-Version',
         '## Installation',
         '## Deployment',
+        '## Abnahmetest',
         '## Release',
         '## Deinstallation',
         '## Lizenz'
@@ -125,7 +130,9 @@ try {
     }
 
     releaseMetadataAssertTrue(
-        strpos($readme, 'scripts/build-release.sh') === false
+        is_file($root . '/docs/production-acceptance-test.md')
+        && is_file($root . '/docs/ispconfig-submission.md')
+        && strpos($readme, 'scripts/build-release.sh') === false
         && strpos($readme, 'Ein lokaler Paket-Build ist für Releases weder vorgesehen noch erforderlich.') !== false,
         'README beschreibt weiterhin einen manuellen Paket-Build.'
     );

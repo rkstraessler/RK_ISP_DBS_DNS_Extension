@@ -1,6 +1,7 @@
 name: Release ISPConfig package
 
 on:
+  workflow_dispatch:
   release:
     types:
       - published
@@ -8,7 +9,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: release-${{ github.event.release.tag_name }}
+  group: release-${{ github.event.release.tag_name || github.run_id }}
   cancel-in-progress: false
 
 env:
@@ -38,9 +39,10 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
 
       - name: Validate tag and version
+        if: github.event_name == 'release'
         shell: bash
         run: |
           set -euo pipefail
@@ -84,6 +86,7 @@ jobs:
 
   release-package:
     name: Build and publish ISPConfig package
+    if: github.event_name == 'release'
     needs:
       - tests
     runs-on: ubuntu-24.04
@@ -158,6 +161,10 @@ jobs:
           package_root="${package_workspace}/${EXTENSION_NAME}"
           package_name="${EXTENSION_NAME}-${version}.pkg"
           package_path="${RUNNER_TEMP}/${package_name}"
+          latest_package_name="${EXTENSION_NAME}.pkg"
+          latest_package_path="${RUNNER_TEMP}/${latest_package_name}"
+          checksum_name="${EXTENSION_NAME}-${version}-SHA256SUMS"
+          checksum_path="${RUNNER_TEMP}/${checksum_name}"
           mkdir -p -- "${package_root}"
 
           git archive --format=tar HEAD "${runtime_paths[@]}" \
@@ -216,17 +223,32 @@ jobs:
             exit 1
           fi
 
+          cp -- "${package_path}" "${latest_package_path}"
+          cmp -- "${package_path}" "${latest_package_path}"
+          (
+            cd -- "${RUNNER_TEMP}"
+            sha256sum -- "${package_name}" "${latest_package_name}" > "${checksum_path}"
+          )
+
           printf 'Verified package contents:\n'
           cat "${actual_entries}"
           sha256sum "${package_path}"
           printf 'package_name=%s\n' "${package_name}" >> "${GITHUB_OUTPUT}"
           printf 'package_path=%s\n' "${package_path}" >> "${GITHUB_OUTPUT}"
+          printf 'latest_package_name=%s\n' "${latest_package_name}" >> "${GITHUB_OUTPUT}"
+          printf 'latest_package_path=%s\n' "${latest_package_path}" >> "${GITHUB_OUTPUT}"
+          printf 'checksum_name=%s\n' "${checksum_name}" >> "${GITHUB_OUTPUT}"
+          printf 'checksum_path=%s\n' "${checksum_path}" >> "${GITHUB_OUTPUT}"
 
       - name: Attach package to the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           PACKAGE_NAME: ${{ steps.package.outputs.package_name }}
           PACKAGE_PATH: ${{ steps.package.outputs.package_path }}
+          LATEST_PACKAGE_NAME: ${{ steps.package.outputs.latest_package_name }}
+          LATEST_PACKAGE_PATH: ${{ steps.package.outputs.latest_package_path }}
+          CHECKSUM_NAME: ${{ steps.package.outputs.checksum_name }}
+          CHECKSUM_PATH: ${{ steps.package.outputs.checksum_path }}
         shell: bash
         run: |
           set -euo pipefail
@@ -235,10 +257,15 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --json assets \
             --jq '.assets[].name')"
-          if grep -Fxq -- "${PACKAGE_NAME}" <<< "${release_assets}"; then
-            printf 'Release asset already exists and will not be overwritten: %s\n' "${PACKAGE_NAME}" >&2
-            exit 1
-          fi
+          for asset_name in "${PACKAGE_NAME}" "${LATEST_PACKAGE_NAME}" "${CHECKSUM_NAME}"; do
+            if grep -Fxq -- "${asset_name}" <<< "${release_assets}"; then
+              printf 'Release asset already exists and will not be overwritten: %s\n' "${asset_name}" >&2
+              exit 1
+            fi
+          done
 
-          gh release upload "${RELEASE_TAG}" "${PACKAGE_PATH}" \
+          gh release upload "${RELEASE_TAG}" \
+            "${PACKAGE_PATH}" \
+            "${LATEST_PACKAGE_PATH}" \
+            "${CHECKSUM_PATH}" \
             --repo "${GITHUB_REPOSITORY}"

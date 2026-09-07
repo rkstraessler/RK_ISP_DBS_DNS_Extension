@@ -17,6 +17,9 @@ ISPConfig-Erweiterung zur Verwaltung von DNS-Zonen und DNS-Records über das Dom
 - PHP 7.4 oder neuer mit SOAP und Sodium/XChaCha20-Poly1305
 - Gültige DBS-Zugangsdaten und Zugriff auf den konfigurierten SOAP-Endpunkt
 
+Die Repository-Metadaten zielen auf ISPConfig 3.3; der Installer dieser Version
+akzeptiert zur Laufzeit ausschließlich ISPConfig 3.3.1p1.
+
 ## Installation
 
 Nach Aufnahme in das offizielle ISPConfig Extension Repository:
@@ -41,16 +44,25 @@ Danach neu am Panel anmelden und unter **DBS DNS Verwaltung → Einstellungen** 
 
 Vor Installation oder Update die ISPConfig-Datenbank und `/usr/local/ispconfig/security/dbsdns/credentials.key` gemeinsam sichern. Offizielle Repository-Installationen werden mit `sudo ispc extension update dbsdns` aktualisiert; bei direktem Deployment wird der Installer aus dem neuen, frisch entpackten `.pkg` erneut ausgeführt. Anschließend Verbindungstest, Zonensynchronisierung und Kundenzuweisungen prüfen.
 
+## Abnahmetest
+
+Die vollständige, reproduzierbare Anleitung für eine isolierte Testinstallation
+steht in [docs/production-acceptance-test.md](docs/production-acceptance-test.md).
+Sie deckt Installation, Update, Disable/Enable, Deinstallation, Neuinstallation,
+Rollenrechte und echte DBS-SOAP-Anfragen ab.
+
 ## Release
 
 Der Workflow setzt ein GitHub-Repository mit aktivierten Actions voraus. Ein Release auf dem bisherigen GitLab-Host löst ihn nicht aus.
 
 1. `VERSION`, den Versionsabschnitt in `CHANGELOG.md` sowie Version und Datum in `packaging/ispconfig/repository-metadata.json` gemeinsam aktualisieren und mergen.
 2. Im GitHub-Repository einen Release mit dem exakten Tag `v<VERSION>` veröffentlichen, zum Beispiel `v1.0.0`.
-3. GitHub Actions prüft Tag, Tests und Paketinhalt, baut `dbsdns-<VERSION>.pkg` reproduzierbar und hängt es an den Release an.
-4. Das `.pkg` und die Repository-Metadaten anschließend beim ISPConfig Extension Repository einreichen; ein öffentlicher automatisierter Einreichungsendpunkt ist derzeit nicht dokumentiert.
+3. GitHub Actions prüft Tag, Tests und Paketinhalt, baut `dbsdns-<VERSION>.pkg` reproduzierbar, erzeugt den stabilen Alias `dbsdns.pkg` sowie eine SHA-256-Prüfsummendatei und hängt alle drei Assets an den Release an. Über `workflow_dispatch` können die Prüfungen vor dem Veröffentlichen manuell ausgeführt werden.
+4. `dbsdns-<VERSION>.pkg`, `dbsdns.pkg`, die Prüfsummendatei und die Repository-Metadaten anschließend beim ISPConfig Extension Repository einreichen; ein öffentlicher automatisierter Einreichungsendpunkt ist derzeit nicht dokumentiert.
 
 Ein lokaler Paket-Build ist für Releases weder vorgesehen noch erforderlich.
+Die konkrete Einreichungsnachricht steht in
+[docs/ispconfig-submission.md](docs/ispconfig-submission.md).
 
 ## Deinstallation
 
