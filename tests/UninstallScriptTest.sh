@@ -37,6 +37,7 @@ chmod +x "${fake_bin}/stat"
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \
+    'if [[ "$#" -eq 0 || ("$#" -eq 1 && "$1" == "-u") ]]; then printf "%s\n" "${DBSDNS_TEST_EUID:-0}"; exit 0; fi' \
     'if [[ "$1" == "-u" && "$2" == "ispconfig" ]]; then printf "%s\n" "12345"; exit 0; fi' \
     'exec /usr/bin/id "$@"' > "${fake_bin}/id"
 chmod +x "${fake_bin}/id"
@@ -52,6 +53,22 @@ chmod +x "${fake_bin}/runuser"
 export PATH="${fake_bin}:${PATH}"
 export DBSDNS_TEST_PHP_MARKER="${php_marker}"
 export DBSDNS_TEST_RUNUSER_MARKER="${runuser_marker}"
+export DBSDNS_TEST_EUID=0
+
+export DBSDNS_TEST_EUID=1000
+if bash "${repository_root}/scripts/uninstall.sh" --dry-run --web-root "${web_root}" \
+    > "${test_root}/non-root.out" 2>&1; then
+    printf '%s\n' 'Uninstaller accepted a non-root caller.' >&2
+    exit 1
+fi
+
+if ! grep -Eiq 'root|privileg' "${test_root}/non-root.out" \
+    || [[ ! -f "${module_root}/marker.txt" || ! -f "${key_file}" || -e "${php_marker}" || -e "${runuser_marker}" ]]; then
+    printf '%s\n' 'Non-root uninstall did not fail before state changes.' >&2
+    exit 1
+fi
+
+export DBSDNS_TEST_EUID=0
 
 bash "${repository_root}/scripts/uninstall.sh" --dry-run --web-root "${web_root}" \
     > "${test_root}/dry-run.out"

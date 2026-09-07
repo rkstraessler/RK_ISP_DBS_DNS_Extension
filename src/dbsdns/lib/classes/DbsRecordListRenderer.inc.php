@@ -3,6 +3,7 @@
 require_once __DIR__ . '/DbsRecordCapabilities.inc.php';
 require_once __DIR__ . '/DbsRecordIdentity.inc.php';
 require_once __DIR__ . '/DbsRecordNormalizer.inc.php';
+require_once __DIR__ . '/DbsRuntime.inc.php';
 
 class DbsRecordListRenderer
 {
@@ -26,11 +27,13 @@ class DbsRecordListRenderer
 
         $cacheId = abs((int)$cacheId);
         $app->uses('listform');
-        $app->listform->loadListDef('list/record.list.php');
+        DbsRuntime::inModuleDirectory(function() use ($app) {
+            $app->listform->loadListDef('list/record.list.php');
+        });
         $app->listform->listDef['page_params'] = '&id=' . $cacheId;
 
         $listTemplate = new tpl;
-        $listTemplate->newTemplate('templates/dbsdns_record_list.htm');
+        $listTemplate->newTemplate(DbsRuntime::templatePath('dbsdns_record_list.htm'));
         $listTemplate->setVar('parent_id', $cacheId);
         $listTemplate->setVar('theme', $_SESSION['s']['theme'], true);
 
@@ -76,7 +79,10 @@ class DbsRecordListRenderer
         }
 
         $listTemplate->setVar($app->listform->wordbook);
-        $listTemplate->setVar('paging', $app->listform->getPagingHTML($paging));
+        $pagingHtml = DbsRuntime::inModuleDirectory(function() use ($app, $paging) {
+            return $app->listform->getPagingHTML($paging);
+        });
+        $listTemplate->setVar('paging', $pagingHtml);
         $listTemplate->setVar(
             'search_limit',
             $this->buildSearchLimitSelect($app->listform->listDef['name'])

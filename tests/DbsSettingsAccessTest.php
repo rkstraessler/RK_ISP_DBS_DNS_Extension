@@ -66,15 +66,20 @@ try {
     $root = dirname(__DIR__);
     $interfaceRoot = $testRoot . DIRECTORY_SEPARATOR . 'interface';
     $moduleRoot = $interfaceRoot . DIRECTORY_SEPARATOR . 'web' . DIRECTORY_SEPARATOR . 'dbsdns';
+    $classRoot = $moduleRoot . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'classes';
     $libRoot = $interfaceRoot . DIRECTORY_SEPARATOR . 'lib';
     $runner = $testRoot . DIRECTORY_SEPARATOR . 'run-settings.php';
 
     settingsAccessAssertTrue(
-        mkdir($moduleRoot, 0777, true) && mkdir($libRoot, 0777, true),
+        mkdir($classRoot, 0777, true) && mkdir($libRoot, 0777, true),
         'Settings-Rollentestumgebung konnte nicht erstellt werden.'
     );
     settingsAccessAssertTrue(
-        copy($root . '/src/dbsdns/settings.php', $moduleRoot . DIRECTORY_SEPARATOR . 'settings.php'),
+        copy($root . '/src/dbsdns/settings.php', $moduleRoot . DIRECTORY_SEPARATOR . 'settings.php')
+        && copy(
+            $root . '/src/dbsdns/lib/classes/DbsRuntime.inc.php',
+            $classRoot . DIRECTORY_SEPARATOR . 'DbsRuntime.inc.php'
+        ),
         'Settings-Controller konnte nicht vorbereitet werden.'
     );
     file_put_contents($libRoot . DIRECTORY_SEPARATOR . 'config.inc.php', "<?php\n");
@@ -105,13 +110,13 @@ PHP
 <?php
 
 $_SERVER['REQUEST_METHOD'] = 'GET';
-require 'settings.php';
+require __DIR__ . '/interface/web/dbsdns/settings.php';
 echo 'UNAUTHORIZED_ROUTE_CONTINUED';
 PHP
     );
 
     foreach(array('customer', 'reseller') as $role) {
-        $result = settingsAccessRun($runner, $moduleRoot, $role);
+        $result = settingsAccessRun($runner, $testRoot, $role);
         settingsAccessAssertTrue(
             $result['exit_code'] === 0
             && strpos($result['output'], 'Access denied.') !== false

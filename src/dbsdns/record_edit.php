@@ -1,11 +1,15 @@
 <?php
 
+$dbsdnsModuleRoot = __DIR__;
+$dbsdnsInterfaceRoot = dirname($dbsdnsModuleRoot, 2);
 $tform_def_file = 'form/record.tform.php';
 
-require_once '../../lib/config.inc.php';
-require_once '../../lib/app.inc.php';
-require_once __DIR__ . '/lib/classes/DbsRecordCapabilities.inc.php';
-require_once __DIR__ . '/lib/classes/DbsRecordIdentity.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRuntime.inc.php';
+DbsRuntime::installRequestGuard('Laden des Datensatzformulars');
+require_once $dbsdnsInterfaceRoot . '/lib/config.inc.php';
+require_once $dbsdnsInterfaceRoot . '/lib/app.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRecordCapabilities.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRecordIdentity.inc.php';
 
 $app->auth->check_module_permissions('dbsdns');
 $recordTokenProvided = array_key_exists('record_token', $_REQUEST);
@@ -63,7 +67,7 @@ if(!is_file(ISPC_ROOT_PATH . '/' . $recordLanguageFile)) {
 $app->load_language_file($recordLanguageFile);
 $app->uses('tpl,tform,tform_actions,validate_dns');
 $app->load('tform_actions');
-require_once __DIR__ . '/lib/classes/DbsRecordPage.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRecordPage.inc.php';
 $formProfile = DbsRecordCapabilities::formProfile($recordType);
 
 if($formProfile === null) {
@@ -111,4 +115,14 @@ $page = new DbsRecordPage($recordType, array(
     'validation_ttl' => $app->lng('ttl_error_invalid'),
     'validation_active' => $app->lng('active_error_invalid')
 ), $recordToken);
-$page->onLoad();
+
+try {
+    // tform_actions lädt die Erweiterungsform und ihr Template relativ zum CWD.
+    DbsRuntime::inModuleDirectory(function() use ($page) {
+        $page->onLoad();
+    });
+} catch (Throwable $exception) {
+    DbsRuntime::logUnexpected($app, $exception, 'Datensatzformular');
+    $app->error($app->lng('dbsdns_record_edit_error_txt'));
+    exit;
+}

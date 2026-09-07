@@ -8,6 +8,97 @@ Die Hauptnavigation stammt unverändert aus ISPConfigs `sys_user.modules`. `DbsM
 
 Im core-freien Zielbetrieb werden weder `interface/lib/config.inc.php` noch `interface/web/dns/lib/module.conf.php`, `nav.php`, `capp.php` oder andere Coredateien geändert.
 
+## Installationsquelle, Staging und Berechtigungen
+
+Ein Release kann unter `/root` oder in einem anderen Root-only-Verzeichnis
+entpackt werden. Ein durch `mktemp -d` erzeugtes Verzeichnis mit `0700` ist
+absichtlich sicher und darf nicht mit `chmod 0755` für den Panel-Benutzer
+geöffnet werden. Die frühere Fehlerursache war, dass der Installer beim Kopieren
+die Root-only-Quelle über `runuser` als Panel-Benutzer lesen wollte; dieser
+`cp`-Aufruf muss an der Quelle als Root erfolgen.
+
+Der aktuelle Ablauf erstellt darunter
+`/usr/local/ispconfig/security/.dbsdns-stage-XXXXXX` mit `0700`. Root kopiert
+das Release-Modul in dessen Kind `module`, prüft Manifest und Dateiinhalte,
+normalisiert Besitz und Modi und testet dieses Kind anschließend mit dem aus
+der geschützten ISPConfig-Konfiguration abgeleiteten Panel-Laufzeitbenutzer.
+Der private Container bleibt für den Laufzeitbenutzer unzugänglich. Nach der
+Prüfung wird das Modul auf demselben Dateisystem per Rename in den Webroot
+aktiviert. `security/` und der ISPConfig-Webroot müssen deshalb auf demselben
+Dateisystem liegen.
+
+Die Zielmodi werden aus dem nativen DNS-Modul abgeleitet: Verzeichnisse
+übernehmen die nativen Bits `& 0755` (typischerweise `0750`), PHP-Dateien die
+Bits `& 0644` (typischerweise `0640`). Die Eigentümer kommen aus der geschützten
+ISPConfig-Konfiguration; es wird kein fester Webserver-Benutzer angenommen.
+Die Zuordnung wird auf den aus dem nativen Upstream abgeleiteten
+`panel_user:panel_group` gesetzt. Das Upstream-Verhalten ist im geprüften
+[ISPConfig-Commit `5005589c22794b504cd7e580a86752a93a619917`](https://git.ispconfig.org/ispconfig/ispconfig3/-/blob/5005589c22794b504cd7e580a86752a93a619917/install/lib/installer_base.lib.php#L3768-3825)
+dokumentiert: `ispconfig:ispconfig`, `chmod -R 750` für die Interface-Dateien
+und `770` für das Sprachverzeichnis; die Erweiterung übernimmt die
+Lesbarkeit/Traversierung und entfernt Schreibbits für ihre Webdateien.
+Der gleiche Upstream-Installationspfad nimmt den konfigurierten Nginx- bzw.
+Apache-Benutzer in die `ispconfig`-Gruppe auf
+([Zeilen 3861–3880](https://git.ispconfig.org/ispconfig/ispconfig3/-/blob/5005589c22794b504cd7e580a86752a93a619917/install/lib/installer_base.lib.php#L3861-3880)).
+Dadurch kann der Webserver die `0750`-Verzeichnisse über die Panel-Gruppe
+traversieren; auch diese Identität wird in der Abnahme aus der tatsächlichen
+Konfiguration abgeleitet.
+
+Für Nginx ist zusätzlich die geprüfte native Vorlage maßgeblich:
+[nginx_ispconfig.vhost.master, Zeile 30](https://git.ispconfig.org/ispconfig/ispconfig3/-/blob/5005589c22794b504cd7e580a86752a93a619917/install/tpl/nginx_ispconfig.vhost.master#L30)
+prüft mit `try_files $uri =404`, bevor an FastCGI weitergereicht wird. Deshalb
+muss die Abnahme die Pfadberechtigungen und die HTTP-Antworten gemeinsam
+prüfen.
+
+Ein `--dry-run` führt nur geschützte Leseprüfungen von Quelle und Ziel aus.
+Es kopiert nicht in das Staging, führt keine Laufzeitprüfung des Staging-Kinds
+aus und ändert weder Datenbank, Schlüssel, Modulberechtigungen noch Coredateien.
+Die echte Staging-, Kopier-, Runtime- und Rename-Prüfung gehört zum normalen
+Installationslauf. Scheitert dieser Lauf nach Beginn der dauerhaften Schritte,
+bleiben bereits angelegte oder geprüfte DBS-Schema- und Schlüsseländerungen
+erhalten; ein vorheriges Modul wird bei einem Aktivierungs- oder
+Berechtigungsfehler automatisch zurückgerollt. Der geheime Schlüssel liegt
+außerhalb des Webroots unter `security/dbsdns` (`root:panel_group`, Verzeichnis
+`0750`, Datei `0640`).
+Der Preflight verlangt für `sys_user` die transaktionale InnoDB-Engine.
+Der Installer stellt keine Tabellen-Engine automatisch um. Die abschließende
+Synchronisierung aller Modulzuweisungen erfolgt in einer Transaktion;
+ein Fehler vor dem Commit rollt die Benutzeränderungen zurück. Schema-DDL
+und die externe Schlüsseldatei bleiben bewusst außerhalb dieser Transaktion.
+Auch das Entfernen der Modulzuweisungen bei der Deinstallation ist
+transaktional. Wird der Installer während der abschließenden
+Berechtigungssynchronisierung unterbrochen, kann deren Commit-Ergebnis
+unbekannt sein. In diesem Sonderfall bleibt das bereits geprüfte neue Modul
+aktiv, und das alte Modul bleibt im gemeldeten privaten Recovery-Workspace
+erhalten. Den Installer erneut ausführen; den gemeldeten Workspace erst nach
+erfolgreicher Abnahme als Root entfernen. Ein regulär gemeldeter
+Synchronisierungsfehler rollt dagegen weiterhin zum alten Modul zurück.
+Der übergeordnete ISPConfig-Installationspfad muss Root gehören und darf keine
+Gruppen- oder anderen Schreibbits tragen (native Installationen verwenden
+hier typischerweise `0755`); die Abnahme prüft dies vor dem Installationslauf
+mit `stat` und `namei`.
+
+## Includes und Fehlerdiagnose
+
+Die neun PHP-Einstiegspunkte leiten ihre Interface- und Modul-Includes aus
+`__DIR__` ab. Dies beseitigt eine zusätzliche CWD-Abhängigkeit; sie ist nicht
+als zweite Ursache des beschriebenen Nginx-Ausfalls nachgewiesen.
+`DbsRuntime` stellt absolute Sprach- und Template-Pfade bereit. ISPConfigs
+`tpl::_fileSearch()` prüft Theme-Overrides weiterhin zuerst und akzeptiert
+anschließend den absoluten Pfad
+([Upstream-Zeilen 914–936](https://git.ispconfig.org/ispconfig/ispconfig3/-/blob/5005589c22794b504cd7e580a86752a93a619917/interface/lib/classes/tpl.inc.php#L914)).
+Native List-/TForm-Ladeabläufe laufen kontrolliert im Modulverzeichnis und
+stellen danach das vorherige Arbeitsverzeichnis wieder her.
+
+Ein früher Request-Guard unterdrückt PHP-Trace-Ausgaben, protokolliert
+ungefangene Fehler mit Operation, Klasse und Position und liefert eine
+generische ISPConfig-Fehlermeldung mit HTTP 500. Exception-Nachrichten,
+Requestdaten und SOAP-Details werden nicht protokolliert. Fachlich behandelte
+Fehler und die bestehenden Modul-, Admin-, DomainAccess- und CSRF-Prüfungen
+bleiben maßgeblich. Ein HTTP 404 bereits bei Nginx erreicht diesen PHP-Guard
+nicht; deshalb gehören Browser-Netzwerkstatus, Nginx- und PHP-FPM-Logs
+gemeinsam zur Abnahme.
+
 ## Zonenliste
 
 `zone_list.php` lädt ISPConfigs generische `listform_actions` und verwendet:

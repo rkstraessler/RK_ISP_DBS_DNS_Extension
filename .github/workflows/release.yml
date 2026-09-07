@@ -75,6 +75,12 @@ jobs:
       - name: Run repository checks
         run: bash scripts/test.sh
 
+      - name: Run privileged install permissions integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo env PATH="$PATH" bash tests/InstallPermissionsIntegrationTest.sh
+
       - name: Run ShellCheck
         if: matrix.php == '8.2'
         shell: bash
@@ -233,12 +239,14 @@ jobs:
           printf 'Verified package contents:\n'
           cat "${actual_entries}"
           sha256sum "${package_path}"
-          printf 'package_name=%s\n' "${package_name}" >> "${GITHUB_OUTPUT}"
-          printf 'package_path=%s\n' "${package_path}" >> "${GITHUB_OUTPUT}"
-          printf 'latest_package_name=%s\n' "${latest_package_name}" >> "${GITHUB_OUTPUT}"
-          printf 'latest_package_path=%s\n' "${latest_package_path}" >> "${GITHUB_OUTPUT}"
-          printf 'checksum_name=%s\n' "${checksum_name}" >> "${GITHUB_OUTPUT}"
-          printf 'checksum_path=%s\n' "${checksum_path}" >> "${GITHUB_OUTPUT}"
+          {
+            printf 'package_name=%s\n' "${package_name}"
+            printf 'package_path=%s\n' "${package_path}"
+            printf 'latest_package_name=%s\n' "${latest_package_name}"
+            printf 'latest_package_path=%s\n' "${latest_package_path}"
+            printf 'checksum_name=%s\n' "${checksum_name}"
+            printf 'checksum_path=%s\n' "${checksum_path}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Attach package to the GitHub release
         env:

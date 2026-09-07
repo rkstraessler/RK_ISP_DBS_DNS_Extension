@@ -1,8 +1,8 @@
 {
   "name": "dbsdns",
   "title": "DBS DNS",
-  "version": "1.0.0",
-  "date": "2026-09-04",
+  "version": "1.0.1",
+  "date": "2026-09-07",
   "ispconfig_version": "3.3",
   "os": "all",
   "dependencies": "",

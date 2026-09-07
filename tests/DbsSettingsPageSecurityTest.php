@@ -7,6 +7,16 @@ function settingsPageSecurityAssertTrue($condition, $message)
     }
 }
 
+class DbsSettingsPageSecurityFakeLogApp
+{
+    public $messages = array();
+
+    public function log($message, $level)
+    {
+        $this->messages[] = array($message, $level);
+    }
+}
+
 $testFailure = null;
 
 try {
@@ -16,6 +26,7 @@ try {
     $module = file_get_contents($root . '/src/dbsdns/lib/module.conf.php');
     $menu = file_get_contents($root . '/src/dbsdns/lib/classes/DbsAdminMenu.inc.php');
     $client = file_get_contents($root . '/src/dbsdns/lib/classes/DbsClient.inc.php');
+    require_once $root . '/src/dbsdns/lib/classes/DbsRuntime.inc.php';
 
     settingsPageSecurityAssertTrue(
         strpos($controller, "check_module_permissions('dbsdns')") !== false
@@ -50,10 +61,30 @@ try {
     );
     settingsPageSecurityAssertTrue(
         strpos($controller, 'getMessage()') === false
-        && strpos($controller, "\$app->log('DBS DNS module permission synchronization failed.'") !== false
+        && strpos($controller, 'DbsRuntime::logUnexpected') !== false
         && strpos($controller, '$app->log($') === false
         && preg_match('/\$_SESSION\s*\[[^\n]+=/i', $controller) === 0,
         'Settings-Controller schreibt Credentials oder Exceptiondetails in Log beziehungsweise Session.'
+    );
+
+    $logApp = new DbsSettingsPageSecurityFakeLogApp();
+    try {
+        throw new ErrorException(
+            'credential=secret-value',
+            0,
+            E_USER_WARNING,
+            $root . '/src/dbsdns/settings.php',
+            42
+        );
+    } catch (Throwable $exception) {
+        DbsRuntime::logUnexpected($logApp, $exception, 'Sicherheitsprüfung');
+    }
+    settingsPageSecurityAssertTrue(
+        count($logApp->messages) === 1
+        && strpos($logApp->messages[0][0], 'ErrorException') !== false
+        && strpos($logApp->messages[0][0], 'secret-value') === false
+        && strpos($logApp->messages[0][0], 'dbsdns/settings.php:42') !== false,
+        'Der zentrale unerwartete Fehlerlogger gibt Exceptiondetails oder keine Modulposition aus.'
     );
 } catch (Throwable $exception) {
     $testFailure = $exception;

@@ -14,6 +14,7 @@ ISPConfig-Erweiterung zur Verwaltung von DNS-Zonen und DNS-Records über das Dom
 
 - ISPConfig **3.3.1p1** (exakt; andere Versionen werden sicher abgewiesen)
 - Linux mit Root-Zugriff, Bash, MariaDB-Client, `unzip` und üblichen GNU-Werkzeugen
+- `sys_user` mit InnoDB für transaktionale Modulzuweisungen (der Preflight prüft dies; keine automatische Engine-Umstellung)
 - PHP 7.4 oder neuer mit SOAP und Sodium/XChaCha20-Poly1305
 - Gültige DBS-Zugangsdaten und Zugriff auf den konfigurierten SOAP-Endpunkt
 
@@ -31,12 +32,16 @@ sudo ispc extension install dbsdns
 Für eine direkte Installation des GitHub-Release-Pakets dieses entpacken und den enthaltenen Installer ausführen:
 
 ```bash
-release_directory="$(mktemp -d)"
-unzip dbsdns-1.0.0.pkg -d "${release_directory}"
-chmod 0755 "${release_directory}"
-sudo bash "${release_directory}/dbsdns/scripts/install.sh" --dry-run
-sudo bash "${release_directory}/dbsdns/scripts/install.sh"
+sudo -i
+release_directory="$(mktemp -d /root/dbsdns-release-XXXXXX)"
+unzip /pfad/zu/dbsdns-1.0.1.pkg -d "${release_directory}"
+bash "${release_directory}/dbsdns/scripts/install.sh" --dry-run
+bash "${release_directory}/dbsdns/scripts/install.sh"
 ```
+
+Das Verzeichnis unter `/root` bleibt absichtlich Root-only (`0700`). Der
+Installer liest die Release-Quelle als Root und kopiert sie in einen privaten
+Stagingbereich; ein `chmod 0755` für die Quelle ist nicht erforderlich.
 
 Danach neu am Panel anmelden und unter **DBS DNS Verwaltung → Einstellungen** die Verbindung speichern und testen.
 
@@ -56,7 +61,7 @@ Rollenrechte und echte DBS-SOAP-Anfragen ab.
 Der Workflow setzt ein GitHub-Repository mit aktivierten Actions voraus. Ein Release auf dem bisherigen GitLab-Host löst ihn nicht aus.
 
 1. `VERSION`, den Versionsabschnitt in `CHANGELOG.md` sowie Version und Datum in `packaging/ispconfig/repository-metadata.json` gemeinsam aktualisieren und mergen.
-2. Im GitHub-Repository einen Release mit dem exakten Tag `v<VERSION>` veröffentlichen, zum Beispiel `v1.0.0`.
+2. Im GitHub-Repository einen Release mit dem exakten Tag `v<VERSION>` veröffentlichen, zum Beispiel `v1.0.1`.
 3. GitHub Actions prüft Tag, Tests und Paketinhalt, baut `dbsdns-<VERSION>.pkg` reproduzierbar, erzeugt den stabilen Alias `dbsdns.pkg` sowie eine SHA-256-Prüfsummendatei und hängt alle drei Assets an den Release an. Über `workflow_dispatch` können die Prüfungen vor dem Veröffentlichen manuell ausgeführt werden.
 4. `dbsdns-<VERSION>.pkg`, `dbsdns.pkg`, die Prüfsummendatei und die Repository-Metadaten anschließend beim ISPConfig Extension Repository einreichen; ein öffentlicher automatisierter Einreichungsendpunkt ist derzeit nicht dokumentiert.
 

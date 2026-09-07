@@ -1,8 +1,8 @@
 <?php
 
 if(PHP_SAPI !== 'cli') {
-    fwrite(STDERR, "Dieses Werkzeug darf nur per CLI ausgeführt werden.\n");
-    exit(2);
+    http_response_code(403);
+    exit('Access denied.');
 }
 
 $options = getopt('', array('interface-root:', 'dry-run'));
@@ -23,12 +23,21 @@ if(
 require_once $interfaceRoot . '/lib/config.inc.php';
 require_once $interfaceRoot . '/lib/app.inc.php';
 require_once __DIR__ . '/lib/classes/DbsModuleAccess.inc.php';
+require_once __DIR__ . '/lib/classes/DbsModulePermissionTransaction.inc.php';
 
+$transaction = new DbsModulePermissionTransaction($app->db);
 try {
+    if(!$dryRun) {
+        $transaction->begin();
+    }
     $moduleAccess = new DbsModuleAccess($app->db);
     $result = $moduleAccess->removeExtensionFromAllUsers($dryRun);
+    if(!$dryRun) {
+        $transaction->commit();
+    }
 } catch (Throwable $exception) {
-    fwrite(STDERR, "DBS-DNS-Modulberechtigungen konnten nicht bereinigt werden.\n");
+    $transaction->rollback();
+    fwrite(STDERR, "DBS-DNS-Modulberechtigungen konnten nicht bereinigt werden; InnoDB und Datenbankzugriff prüfen.\n");
     exit(1);
 }
 

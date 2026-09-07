@@ -63,6 +63,8 @@ for required_command in php rm stat id runuser; do
         || fail "Required command not found: ${required_command}"
 done
 
+[[ "$(id -u)" == '0' ]] || fail 'Run this uninstaller as root, including --dry-run.'
+
 if [[ ! -f "${version_file}" || ! -f "${permission_cleaner}" ]]; then
     fail 'ISPConfig or the DBS DNS uninstaller is incomplete.'
 fi

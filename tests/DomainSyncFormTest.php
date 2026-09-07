@@ -103,20 +103,30 @@ try {
     $moduleRoot = $interfaceRoot . DIRECTORY_SEPARATOR . 'web' . DIRECTORY_SEPARATOR . 'dbsdns';
     $classRoot = $moduleRoot . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'classes';
     $languageRoot = $moduleRoot . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'lang';
+    $templateRoot = $moduleRoot . DIRECTORY_SEPARATOR . 'templates';
     $interfaceLibRoot = $interfaceRoot . DIRECTORY_SEPARATOR . 'lib';
     $runner = $testRoot . DIRECTORY_SEPARATOR . 'run-domain-sync.php';
 
     domainSyncFormAssertTrue(
         mkdir($classRoot, 0777, true)
         && mkdir($languageRoot, 0777, true)
+        && mkdir($templateRoot, 0777, true)
         && mkdir($interfaceLibRoot, 0777, true),
         'Die Domain-Sync-Testumgebung konnte nicht angelegt werden.'
     );
     domainSyncFormAssertTrue(
         copy($root . '/src/dbsdns/domain_sync.php', $moduleRoot . DIRECTORY_SEPARATOR . 'domain_sync.php')
         && copy(
+            $root . '/src/dbsdns/lib/classes/DbsRuntime.inc.php',
+            $classRoot . DIRECTORY_SEPARATOR . 'DbsRuntime.inc.php'
+        )
+        && copy(
             $root . '/src/dbsdns/lib/lang/en_dbsdns.lng',
             $languageRoot . DIRECTORY_SEPARATOR . 'en_dbsdns.lng'
+        )
+        && copy(
+            $root . '/src/dbsdns/templates/domain_sync.htm',
+            $templateRoot . DIRECTORY_SEPARATOR . 'domain_sync.htm'
         ),
         'Die Domain-Sync-Testdateien konnten nicht vorbereitet werden.'
     );
@@ -181,6 +191,9 @@ class DbsDomainSyncFakeTemplate
 
     public function setInclude($name, $template)
     {
+        if(!is_file($template)) {
+            throw new RuntimeException('Das lokale Domain-Sync-Template wurde nicht absolut aufgelöst.');
+        }
     }
 
     public function setVar($name, $value = null, $escape = false)
@@ -339,12 +352,12 @@ $_POST = $method === 'POST'
     : array();
 $_SESSION = array('s' => array('language' => 'en'));
 
-require 'domain_sync.php';
+require __DIR__ . '/interface/web/dbsdns/domain_sync.php';
 PHP
     );
 
     $getMarkerRoot = $testRoot . DIRECTORY_SEPARATOR . 'get-markers';
-    $getResult = domainSyncFormRun($runner, $moduleRoot, 'GET', $getMarkerRoot);
+    $getResult = domainSyncFormRun($runner, $testRoot, 'GET', $getMarkerRoot);
     domainSyncFormAssertTrue(
         $getResult['exit_code'] === 0
         && !is_file($getMarkerRoot . DIRECTORY_SEPARATOR . 'csrf.marker')
@@ -354,7 +367,7 @@ PHP
     );
 
     $postMarkerRoot = $testRoot . DIRECTORY_SEPARATOR . 'post-markers';
-    $postResult = domainSyncFormRun($runner, $moduleRoot, 'POST', $postMarkerRoot);
+    $postResult = domainSyncFormRun($runner, $testRoot, 'POST', $postMarkerRoot);
     domainSyncFormAssertTrue(
         $postResult['exit_code'] === 0
         && is_file($postMarkerRoot . DIRECTORY_SEPARATOR . 'csrf.marker')

@@ -79,10 +79,12 @@ if [[ -L "${module_target}" || ( -e "${module_target}" && ! -d "${module_target}
     fail 'The DBS DNS module target is unsafe; no files were changed.'
 fi
 
-for required_command in sha256sum grep php cp mkdir date rm mv mktemp awk dirname chmod chown stat id runuser; do
+for required_command in sha256sum grep php cp mkdir date rm mv mktemp awk dirname chmod chown stat id runuser find sort cmp; do
     command -v "${required_command}" >/dev/null 2>&1 \
         || fail "Required command not found: ${required_command}"
 done
+
+[[ "$(id -u)" == '0' ]] || fail 'Run this installer as root, including --dry-run.'
 
 if [[
     ! -d "${module_source}"
@@ -104,7 +106,7 @@ if [[
     fail 'The repository does not contain the DBS cache and settings schema installer.'
 fi
 
-if [[ ! -f "${version_file}" ]]; then
+if [[ ! -f "${version_file}" || ! -f "${ispconfig_interface_root}/lib/app.inc.php" ]]; then
     fail 'The ISPConfig version file was not found.'
 fi
 
@@ -255,6 +257,13 @@ if [[ -L "${security_directory}" || ! -d "${security_directory}" ]]; then
     fail 'The ISPConfig security directory is missing or unsafe; no files were changed.'
 fi
 
+install_root_permissions="$(stat -c '%a' "${ispconfig_install_root}")"
+if [[ "$(stat -c '%U' "${ispconfig_install_root}")" != 'root' ]] \
+    || [[ ! "${install_root_permissions}" =~ ^[0-7]{3,4}$ ]] \
+    || (( (8#${install_root_permissions} & 8#022) != 0 )); then
+    fail 'The ISPConfig install root must be root-owned and not writable by group or other users.'
+fi
+
 # ISPConfig 3.3.1p1 runs the panel as the non-root owner of its protected
 # interface tree and grants that same group read access to the security tree.
 panel_user="$(stat -c '%U' "${version_file}")"
@@ -282,6 +291,51 @@ if [[ ! "${security_permissions}" =~ ^[0-7]{3,4}$ ]] \
     || (( (8#${security_permissions} & 8#022) != 0 )); then
     fail 'The ISPConfig security directory must not be writable by group or other users.'
 fi
+
+# ISPConfig 3.3.1p1 installer_base.lib.php uses ispconfig:ispconfig and
+# chmod -R 750 for the interface. Some deployments use 755/644 instead.
+# Inherit the native DNS module's read/traverse semantics, stripping group/
+# other writes, special bits and executable bits from ordinary files.
+native_module="${ispconfig_web_root}/dns"
+native_page="${native_module}/dns_soa_list.php"
+for native_path in "${native_module}" "${native_page}"; do
+    if [[ -L "${native_path}" || ! -e "${native_path}" ]] \
+        || [[ "$(stat -c '%U' "${native_path}")" != "${panel_user}" ]] \
+        || [[ "$(stat -c '%G' "${native_path}")" != "${panel_group}" ]]; then
+        fail 'The native ISPConfig DNS module ownership could not be verified.'
+    fi
+done
+native_directory_mode="$(stat -c '%a' "${native_module}")"
+native_file_mode="$(stat -c '%a' "${native_page}")"
+if [[ ! "${native_directory_mode}" =~ ^[0-7]{3,4}$ || ! "${native_file_mode}" =~ ^[0-7]{3,4}$ ]] \
+    || (( (8#${native_directory_mode} & 8#750) != 8#750 )) \
+    || (( (8#${native_file_mode} & 8#640) != 8#640 )); then
+    fail 'The native ISPConfig DNS module lacks the required group read/traverse permissions.'
+fi
+printf -v module_directory_mode '%03o' "$((8#${native_directory_mode} & 8#755))"
+printf -v module_file_mode '%03o' "$((8#${native_file_mode} & 8#644))"
+printf 'Web module permissions: %s:%s directories %s, files %s (native DNS reference).\n' \
+    "${panel_user}" "${panel_group}" "${module_directory_mode}" "${module_file_mode}"
+
+# Only the declared, secret-free release payload may enter the webroot.
+module_manifest="${repository_root}/install/module-files.list"
+if [[ -L "${module_source}" || ! -f "${module_manifest}" ]] \
+    || [[ -n "$(find "${module_source}" ! -type d ! -type f -print -quit)" ]]; then
+    fail 'The module source is unsafe or its file manifest is missing.'
+fi
+if ! cmp -s <(LC_ALL=C sort "${module_manifest}") \
+    <(find "${module_source}" -type f -printf '%P\n' | LC_ALL=C sort); then
+    fail 'The module source differs from its complete release file manifest.'
+fi
+while IFS= read -r -d '' source_php; do
+    php -l "${source_php}" >/dev/null || fail 'The module source failed PHP syntax validation.'
+done < <(find "${module_source}" -type f \( -name '*.php' -o -name '*.lng' \) -print0)
+
+if [[ "$(stat -c '%d' "${security_directory}")" != "$(stat -c '%d' "${ispconfig_web_root}")" ]]; then
+    fail 'The protected staging directory and webroot must be on the same filesystem for atomic activation.'
+fi
+[[ -w "${security_directory}" && -w "${ispconfig_web_root}" ]] \
+    || fail 'The staging directory or webroot is not writable by the installer.'
 
 if [[ -L "${secret_directory}" || ( -e "${secret_directory}" && ! -d "${secret_directory}" ) ]]; then
     fail 'The DBS credential key directory is unsafe; no files were changed.'
@@ -342,6 +396,9 @@ fi
 
 printf 'Database schema state: %s\n' "${schema_state}"
 
+php "${module_permission_installer}" --interface-root "${ispconfig_interface_root}" --preflight \
+    || fail 'Module-permission transaction preflight failed; no files or database tables were changed.'
+
 show_manual_schema_command() {
     printf '%s\n' 'Run this command on the ISPConfig server, then rerun the installer:' >&2
 
@@ -366,34 +423,146 @@ if [[ "${schema_state}" != 'correct' ]]; then
 
     if ((dry_run == 1)); then
         printf 'Dry run: the privileged installer would apply the required DBS cache/settings schema files.\n'
-    else
-        if [[ "${schema_state}" == 'missing' ]] && ! mariadb "${database_name}" < "${schema_file}"; then
-            show_manual_schema_command "${schema_state}"
-            fail 'Privileged DBS cache/settings schema creation failed; no module or core files were changed.'
-        fi
+    fi
+fi
 
-        if ! mariadb "${database_name}" < "${schema_migration_file}" \
-            || ! mariadb "${database_name}" < "${settings_schema_migration_file}"; then
-            show_manual_schema_command "${schema_state}"
-            fail 'Privileged DBS cache/settings schema migration failed; no module or core files were changed.'
-        fi
+if [[ "${schema_state}" == 'correct' ]]; then
+    settings_secret_state="$(php "${schema_validator}" --interface-root "${ispconfig_interface_root}" --settings-secret-state)" \
+        || fail 'DBS credential state inspection failed; no files were changed.'
+
+    if [[ "${secret_key_state}" == 'missing' && "${settings_secret_state}" == 'configured' ]]; then
+        fail 'Encrypted DBS credentials exist but their external key is missing; restore the key before reinstalling.'
     fi
 fi
 
 if ((dry_run == 1)); then
-    if [[ "${schema_state}" == 'correct' ]]; then
-        settings_secret_state="$(php "${schema_validator}" --interface-root "${ispconfig_interface_root}" --settings-secret-state)" \
-            || fail 'DBS credential state inspection failed; no files were changed.'
+    printf '%s\n' 'Core integration target: none'
+    printf 'Credential key state: %s for panel runtime %s:%s; dry run makes no key changes.\n' "${secret_key_state}" "${panel_user}" "${panel_group}"
+    printf '%s\n' 'Dry run: source and target inspected; staging/copy/runtime verification runs only during installation.'
+    printf '%s\n' 'Dry run complete; no files, keys, module permissions or database tables were changed.'
+    exit 0
+fi
 
-        if [[ "${secret_key_state}" == 'missing' && "${settings_secret_state}" == 'configured' ]]; then
-            fail 'Encrypted DBS credentials exist but their external key is missing; restore the key before reinstalling.'
+module_stage=''
+module_workspace=''
+module_previous=''
+module_previous_created=0
+module_activated=0
+module_deployment_complete=0
+persistent_changes_started=0
+permission_sync_in_progress=0
+
+cleanup_module_stage() {
+    if [[ -n "${module_workspace}" && "${module_workspace}" == "${security_directory}/.dbsdns-stage-"* ]]; then
+        rm -rf -- "${module_workspace}"
+    fi
+}
+
+rollback_module_deployment() {
+    # A signal can arrive immediately after mv returns. Flags are set before
+    # each rename; an absent backup means the original module never moved.
+    if ((module_activated == 0)) && [[ ! -d "${module_previous}" ]]; then
+        module_previous_created=0
+        return 0
+    fi
+    if [[ -L "${module_target}" || -f "${module_target}" ]]; then
+        rm -f -- "${module_target}" || return 1
+    elif [[ -d "${module_target}" ]]; then
+        rm -rf -- "${module_target}" || return 1
+    fi
+
+    if ((module_previous_created == 1)) && [[ -d "${module_previous}" && ! -L "${module_previous}" ]]; then
+        mv -T -- "${module_previous}" "${module_target}" || return 1
+        module_previous_created=0
+    fi
+
+    module_activated=0
+}
+
+cleanup_module_deployment() {
+    exit_status=$?
+    if ((permission_sync_in_progress == 1)); then
+        # The CLI may already have committed when it or this shell is signalled.
+        # Keep the verified new module available for either DB outcome, and the
+        # previous module protected for recovery. Never turn this into a blank
+        # module by guessing that the database transaction was rolled back.
+        printf 'ERROR: Module-permission synchronization was interrupted; the verified module remains active. Recovery workspace: %s. Rerun the installer.\n' "${module_workspace}" >&2
+        return "${exit_status}"
+    fi
+    if ((
+        module_deployment_complete == 0
+        && (module_activated == 1 || module_previous_created == 1)
+    )); then
+        if ! rollback_module_deployment; then
+            printf 'ERROR: Automatic module rollback failed; previous module retained at %s.\n' "${module_previous}" >&2
+            return 1
         fi
     fi
 
-    printf '%s\n' 'Core integration target: none'
-    printf 'Credential key state: %s for panel runtime %s:%s; dry run makes no key changes.\n' "${secret_key_state}" "${panel_user}" "${panel_group}"
-    printf '%s\n' 'Dry run complete; no files, keys, module permissions or database tables were changed.'
-    exit 0
+    cleanup_module_stage
+    if ((exit_status != 0 && persistent_changes_started == 1)); then
+        printf '%s\n' 'Installation failed. Any completed schema/key changes are retained safely; correct the cause and rerun the installer.' >&2
+    fi
+    return "${exit_status}"
+}
+
+trap cleanup_module_deployment EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+module_workspace="$(mktemp -d "${security_directory}/.dbsdns-stage-XXXXXX")" \
+    || fail 'The DBS DNS staging directory could not be created.'
+
+if [[ "${module_workspace}" != "${security_directory}/.dbsdns-stage-"* || ! -d "${module_workspace}" || -L "${module_workspace}" ]]; then
+    fail 'The DBS DNS staging directory is unsafe.'
+fi
+chmod 0700 "${module_workspace}"
+module_stage="${module_workspace}/module"
+module_previous="${module_workspace}/previous"
+mkdir -- "${module_stage}"
+
+# Root reads the trusted release even when its parent is /root (0700).
+# The root-owned private container prevents traversal or replacement while
+# copying and normalizing its module child, and never becomes a web directory.
+if ! cp -R --no-dereference -- "${module_source}/." "${module_stage}/"; then
+    fail 'The DBS DNS module could not be copied into its staging directory.'
+fi
+
+if [[ -n "$(find "${module_stage}" ! -type d ! -type f -print -quit)" ]] \
+    || ! cmp -s <(LC_ALL=C sort "${module_manifest}") \
+        <(find "${module_stage}" -type f -printf '%P\n' | LC_ALL=C sort); then
+    fail 'The staged module is unsafe or incomplete.'
+fi
+while IFS= read -r module_file; do
+    cmp -s "${module_source}/${module_file}" "${module_stage}/${module_file}" \
+        || fail 'A staged module file differs from its release source.'
+done < "${module_manifest}"
+find "${module_stage}" -type d -exec chmod "${module_directory_mode}" {} +
+find "${module_stage}" -type f -exec chmod "${module_file_mode}" {} +
+chown -R -- "${panel_user}:${panel_group}" "${module_stage}"
+
+# Check the child as the actual runtime without opening the staging container
+# to it: root enters first, then runuser preserves that working directory.
+if ! (cd -- "${module_stage}" && runuser --user "${panel_user}" -- bash -c '
+    test -x . || exit 1
+    while IFS= read -r -d "" directory; do test -x "$directory" || exit 1; done < <(find . -type d -print0)
+    while IFS= read -r -d "" file; do test -r "$file" || exit 1; done < <(find . -type f -print0)
+'); then
+    fail 'The staged module is not readable/traversable by the ISPConfig runtime.'
+fi
+printf '%s\n' 'Module staging verified; starting persistent installation changes.'
+persistent_changes_started=1
+
+if [[ "${schema_state}" != 'correct' ]]; then
+    if [[ "${schema_state}" == 'missing' ]] && ! mariadb "${database_name}" < "${schema_file}"; then
+        show_manual_schema_command "${schema_state}"
+        fail 'Privileged DBS cache/settings schema creation failed; no module or core files were changed.'
+    fi
+    if ! mariadb "${database_name}" < "${schema_migration_file}" \
+        || ! mariadb "${database_name}" < "${settings_schema_migration_file}"; then
+        show_manual_schema_command "${schema_state}"
+        fail 'Privileged DBS cache/settings schema migration failed; no module or core files were changed.'
+    fi
 fi
 
 php "${schema_validator}" --interface-root "${ispconfig_interface_root}" \
@@ -492,90 +661,23 @@ if ((core_verification_required == 1 && obsolete_menu_migration_required == 1));
     rm -f -- "${obsolete_menu_target}"
 fi
 
-module_stage=''
-module_previous="${ispconfig_web_root}/.dbsdns-previous-$$"
-module_previous_created=0
-module_activated=0
-module_deployment_complete=0
-
-cleanup_module_stage() {
-    if [[ -n "${module_stage}" && "${module_stage}" == "${ispconfig_web_root}/.dbsdns-stage-"* ]]; then
-        if [[ -L "${module_stage}" || -f "${module_stage}" ]]; then
-            rm -f -- "${module_stage}"
-        elif [[ -d "${module_stage}" ]]; then
-            rm -rf -- "${module_stage}"
-        fi
-    fi
-}
-
-rollback_module_deployment() {
-    if [[ -L "${module_target}" || -f "${module_target}" ]]; then
-        rm -f -- "${module_target}"
-    elif [[ -d "${module_target}" ]]; then
-        rm -rf -- "${module_target}"
-    fi
-
-    if ((module_previous_created == 1)) && [[ -d "${module_previous}" && ! -L "${module_previous}" ]]; then
-        mv -T -- "${module_previous}" "${module_target}"
-        module_previous_created=0
-    fi
-
-    module_activated=0
-}
-
-cleanup_module_deployment() {
-    exit_status=$?
-    cleanup_module_stage
-
-    if ((
-        module_deployment_complete == 0
-        && (module_activated == 1 || module_previous_created == 1)
-    )); then
-        rollback_module_deployment || true
-    fi
-
-    return "${exit_status}"
-}
-
-trap cleanup_module_deployment EXIT
-
-if [[ -e "${module_previous}" || -L "${module_previous}" ]]; then
-    fail 'The temporary DBS DNS rollback path already exists.'
-fi
-
-module_stage="$(runuser --user "${panel_user}" -- mktemp -d "${ispconfig_web_root}/.dbsdns-stage-XXXXXX")" \
-    || fail 'The DBS DNS staging directory could not be created.'
-
-if [[ "${module_stage}" != "${ispconfig_web_root}/.dbsdns-stage-"* || ! -d "${module_stage}" || -L "${module_stage}" ]]; then
-    fail 'The DBS DNS staging directory is unsafe.'
-fi
-
-if ! runuser --user "${panel_user}" -- cp -R -- "${module_source}/." "${module_stage}/"; then
-    fail 'The DBS DNS module could not be copied into its staging directory.'
-fi
-
-if [[ ! -f "${module_stage}/.core-integration-none" ]]; then
-    fail 'The staged module is missing its core-free state marker.'
+if [[ -L "${module_target}" || ( -e "${module_target}" && ! -d "${module_target}" ) ]]; then
+    fail 'The DBS DNS module target became unsafe before activation.'
 fi
 
 if [[ -d "${module_target}" ]]; then
+    module_previous_created=1
     mv -T -- "${module_target}" "${module_previous}" \
         || fail 'The previous DBS DNS module could not be prepared for rollback.'
-    module_previous_created=1
 fi
 
+module_activated=1
 if ! mv -T -- "${module_stage}" "${module_target}"; then
     rollback_module_deployment
     fail 'The staged DBS DNS module could not be activated.'
 fi
 
 module_stage=''
-module_activated=1
-
-if ! php "${module_permission_installer}" --interface-root "${ispconfig_interface_root}"; then
-    rollback_module_deployment
-    fail 'ISPConfig module permissions could not be synchronized; the previous module was restored.'
-fi
 
 if [[ ! -f "${core_free_marker}" ]]; then
     rollback_module_deployment
@@ -597,13 +699,24 @@ if ((core_verification_required == 1)); then
     done
 fi
 
-if ((module_previous_created == 1)); then
-    rm -rf -- "${module_previous}"
-    module_previous_created=0
+permission_sync_in_progress=1
+permission_status=0
+php "${module_permission_installer}" --interface-root "${ispconfig_interface_root}" || permission_status=$?
+if ((permission_status > 128)); then
+    fail 'Module-permission synchronization was interrupted before its result could be confirmed.'
+fi
+if ((permission_status == 0)); then
+    module_deployment_complete=1
+fi
+permission_sync_in_progress=0
+if ((permission_status != 0)); then
+    fail 'ISPConfig module permissions could not be synchronized; restoring the previous module.'
 fi
 
-module_deployment_complete=1
-trap - EXIT
+# Permission synchronization is the final persistent operation. Cleanup failure
+# must not roll back a verified module after the permissions have been committed.
+cleanup_module_stage
+trap - EXIT INT TERM
 
 printf '%s\n' 'DBS DNS module installed; cache/settings schema, credential key and module permissions verified.'
 printf '%s\n' 'Core integration: none'

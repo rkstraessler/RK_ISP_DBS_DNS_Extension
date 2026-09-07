@@ -1,10 +1,15 @@
 <?php
 
-require_once '../../lib/config.inc.php';
-require_once '../../lib/app.inc.php';
-require_once __DIR__ . '/lib/classes/DbsRecordService.inc.php';
-require_once __DIR__ . '/lib/classes/DbsSessionWriteAccess.inc.php';
-require_once __DIR__ . '/lib/classes/DbsZoneAccess.inc.php';
+$dbsdnsModuleRoot = __DIR__;
+$dbsdnsInterfaceRoot = dirname($dbsdnsModuleRoot, 2);
+
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRuntime.inc.php';
+DbsRuntime::installRequestGuard('Löschen eines DNS-Eintrags');
+require_once $dbsdnsInterfaceRoot . '/lib/config.inc.php';
+require_once $dbsdnsInterfaceRoot . '/lib/app.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRecordService.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsSessionWriteAccess.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsZoneAccess.inc.php';
 
 $app->auth->check_module_permissions('dbsdns');
 $language = $app->functions->check_language($_SESSION['s']['language']);
@@ -96,7 +101,7 @@ try {
     $app->log('DBS DNS record delete failed (code ' . (int)$exception->getCode() . ').', LOGLEVEL_ERROR);
     $redirectToZone('show_error_msg', $app->lng('dbsdns_record_delete_error_txt'));
 } catch (Throwable $exception) {
-    $app->log('DBS DNS record delete failed (' . get_class($exception) . ').', LOGLEVEL_ERROR);
+    DbsRuntime::logUnexpected($app, $exception, 'Löschen eines DNS-Eintrags');
     $redirectToZone('show_error_msg', $app->lng('dbsdns_record_delete_error_txt'));
 }
 

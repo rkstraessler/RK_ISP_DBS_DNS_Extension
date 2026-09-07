@@ -5,6 +5,10 @@ Upload für neue Extensions. Die Veröffentlichung wird deshalb vorbereitet und
 anschließend mit einer kurzen Anfrage an das ISPConfig-Entwicklerteam
 eingereicht.
 
+Dieser Stand bereitet Version 1.0.1 vor. Er veröffentlicht weder einen
+GitHub-Release noch den Tag `v1.0.1`; beides erfolgt erst nach der
+Abnahmefreigabe.
+
 ## Vor der Anfrage
 
 1. Änderungen in das öffentliche GitHub-Repository pushen.
@@ -22,7 +26,7 @@ eingereicht.
    und prüfen:
 
 ```bash
-VERSION=1.0.0
+VERSION=1.0.1
 BASE_URL="https://github.com/rkstraessler/RK_ISP_DBS_DNS_Extension/releases/download/v$VERSION"
 
 curl -fL "$BASE_URL/dbsdns-$VERSION.pkg" -o "dbsdns-$VERSION.pkg"

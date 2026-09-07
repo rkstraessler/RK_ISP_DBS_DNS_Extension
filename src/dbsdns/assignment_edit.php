@@ -1,7 +1,12 @@
 <?php
 
-require_once '../../lib/config.inc.php';
-require_once '../../lib/app.inc.php';
+$dbsdnsModuleRoot = __DIR__;
+$dbsdnsInterfaceRoot = dirname($dbsdnsModuleRoot, 2);
+
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRuntime.inc.php';
+DbsRuntime::installRequestGuard('Laden der Zuordnungsbearbeitung');
+require_once $dbsdnsInterfaceRoot . '/lib/config.inc.php';
+require_once $dbsdnsInterfaceRoot . '/lib/app.inc.php';
 
 $app->auth->check_module_permissions('dbsdns');
 
@@ -10,17 +15,17 @@ if(!$app->auth->is_admin()) {
     die('Access denied.');
 }
 
-require_once 'lib/classes/DomainMatcher.inc.php';
-require_once 'lib/classes/DomainAssignment.inc.php';
-require_once 'lib/classes/DomainAccess.inc.php';
-require_once 'lib/classes/DbsModuleAccess.inc.php';
-require_once 'lib/classes/ZoneCache.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DomainMatcher.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DomainAssignment.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DomainAccess.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsModuleAccess.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/ZoneCache.inc.php';
 
 $language = $app->functions->check_language($_SESSION['s']['language']);
-$languageFile = 'lib/lang/' . $language . '_dbsdns.lng';
+$languageFile = DbsRuntime::languagePath($language, 'dbsdns');
 
 if(!is_file($languageFile)) {
-    $languageFile = 'lib/lang/en_dbsdns.lng';
+    $languageFile = DbsRuntime::languagePath('en', 'dbsdns');
 }
 
 include $languageFile;
@@ -163,10 +168,7 @@ try {
                 $moduleAccess = new DbsModuleAccess($app->db);
                 $moduleAccess->synchronizeEligibleUsers();
             } catch (Throwable $exception) {
-                $app->log(
-                    'DBS DNS module permission synchronization failed (' . get_class($exception) . ').',
-                    LOGLEVEL_ERROR
-                );
+                DbsRuntime::logUnexpected($app, $exception, 'Synchronisieren der Modulberechtigungen');
             }
         }
     }
@@ -300,6 +302,7 @@ try {
         $assignmentError = $wb['assignment_write_error_txt'];
     }
 } catch (Throwable $exception) {
+    DbsRuntime::logUnexpected($app, $exception, 'Laden der Zuordnungsbearbeitung');
     $assignmentError = $wb['assignment_error_txt'];
 }
 
@@ -319,7 +322,7 @@ $safeValues = $app->functions->htmlentities(array(
 
 $app->uses('tpl');
 $app->tpl->newTemplate('form.tpl.htm');
-$app->tpl->setInclude('content_tpl', 'templates/assignment_edit.htm');
+$app->tpl->setInclude('content_tpl', DbsRuntime::templatePath('assignment_edit.htm'));
 $app->tpl->setVar($wb);
 $app->tpl->setVar($safeValues);
 $app->tpl->setVar('assignment_error', $assignmentError, true);

@@ -1,7 +1,12 @@
 <?php
 
-require_once '../../lib/config.inc.php';
-require_once '../../lib/app.inc.php';
+$dbsdnsModuleRoot = __DIR__;
+$dbsdnsInterfaceRoot = dirname($dbsdnsModuleRoot, 2);
+
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRuntime.inc.php';
+DbsRuntime::installRequestGuard('Laden der Einstellungen');
+require_once $dbsdnsInterfaceRoot . '/lib/config.inc.php';
+require_once $dbsdnsInterfaceRoot . '/lib/app.inc.php';
 
 $app->auth->check_module_permissions('dbsdns');
 
@@ -10,15 +15,15 @@ if(!$app->auth->is_admin()) {
     die('Access denied.');
 }
 
-require_once 'lib/classes/DbsClient.inc.php';
-require_once 'lib/classes/DbsModuleAccess.inc.php';
-require_once 'lib/classes/DbsSettingsService.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsClient.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsModuleAccess.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsSettingsService.inc.php';
 
 $language = $app->functions->check_language($_SESSION['s']['language']);
-$languageFile = 'lib/lang/' . $language . '_dbsdns.lng';
+$languageFile = DbsRuntime::languagePath($language, 'dbsdns');
 
 if(!is_file($languageFile)) {
-    $languageFile = 'lib/lang/en_dbsdns.lng';
+    $languageFile = DbsRuntime::languagePath('en', 'dbsdns');
 }
 
 include $languageFile;
@@ -46,7 +51,7 @@ try {
         try {
             (new DbsModuleAccess($app->db))->synchronizeEligibleUsers();
         } catch (Throwable $exception) {
-            $app->log('DBS DNS module permission synchronization failed.', LOGLEVEL_ERROR);
+            DbsRuntime::logUnexpected($app, $exception, 'Synchronisieren der Modulberechtigungen');
         }
     };
     $isPost = isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST';
@@ -78,6 +83,7 @@ try {
                     ? $wb['settings_password_required_txt']
                     : $wb['settings_invalid_txt'];
             } catch (Throwable $exception) {
+                DbsRuntime::logUnexpected($app, $exception, 'Speichern der Einstellungen');
                 $settingsError = $wb['settings_save_error_txt'];
             }
         } elseif($action === 'test') {
@@ -98,6 +104,7 @@ try {
                     $settingsService->saveTestResult(true, $persistSource);
                     $synchronizeModuleAccess();
                 } catch (Throwable $exception) {
+                    DbsRuntime::logUnexpected($app, $exception, 'Speichern des erfolgreichen Verbindungstests');
                 }
             } catch (DbsClientException $exception) {
                 $errorMessages = array(
@@ -116,6 +123,7 @@ try {
                     $settingsService->saveTestResult(false, $persistSource);
                     $synchronizeModuleAccess();
                 } catch (Throwable $statusException) {
+                    DbsRuntime::logUnexpected($app, $statusException, 'Speichern des fehlgeschlagenen Verbindungstests');
                 }
             } catch (DbsCredentialException $exception) {
                 $connectionTestError = $wb['connection_test_configuration_error_txt'];
@@ -124,6 +132,7 @@ try {
                     ? $wb['settings_password_required_txt']
                     : $wb['settings_invalid_txt'];
             } catch (Throwable $exception) {
+                DbsRuntime::logUnexpected($app, $exception, 'Testen der Verbindung');
                 $connectionTestError = $wb['connection_test_error_txt'];
             }
         } else {
@@ -135,6 +144,7 @@ try {
 } catch (DbsCredentialException $exception) {
     $settingsError = $wb['settings_storage_error_txt'];
 } catch (Throwable $exception) {
+    DbsRuntime::logUnexpected($app, $exception, 'Laden der Einstellungen');
     $settingsError = $wb['settings_storage_error_txt'];
 }
 
@@ -168,7 +178,7 @@ $statusClasses = array(
 
 $app->uses('tpl');
 $app->tpl->newTemplate('form.tpl.htm');
-$app->tpl->setInclude('content_tpl', 'templates/settings.htm');
+$app->tpl->setInclude('content_tpl', DbsRuntime::templatePath('settings.htm'));
 $app->tpl->setVar($wb);
 $app->tpl->setVar('settings_error', $settingsError, true);
 $app->tpl->setVar('settings_successful', $settingsSuccessful);

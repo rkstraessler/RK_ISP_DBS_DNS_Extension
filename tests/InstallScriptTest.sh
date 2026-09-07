@@ -74,6 +74,8 @@ printf '%s\n' \
     '        esac' \
     '        ;;' \
     '    */install_module_permissions.php)' \
+    '        if [[ " $* " == *" --preflight "* ]]; then exit 0; fi' \
+    '        if [[ "${DBSDNS_TEST_SIGNAL_PERMISSION:-0}" == "1" ]]; then kill -TERM "$PPID"; exit 0; fi' \
     '        printf "%s\n" "DBS-DNS-Modulberechtigungen: 2 aktualisiert, 1 unverändert."' \
     '        exit "${DBSDNS_TEST_PERMISSION_STATUS:-0}"' \
     '        ;;' \
@@ -89,19 +91,24 @@ chmod +x "${fake_bin}/mariadb"
 
 real_stat="$(command -v stat)"
 real_id="$(command -v id)"
+real_mv="$(command -v mv)"
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \
     'if [[ "$1" == "-c" && "$2" == "%U" ]]; then' \
-    '    if [[ "$3" == "${DBSDNS_TEST_SECURITY_DIRECTORY:?}" ]]; then printf "%s\n" "root"; else printf "%s\n" "ispconfig"; fi' \
+    '    if [[ "$3" == "${DBSDNS_TEST_SECURITY_DIRECTORY:?}" || "$3" == "${DBSDNS_TEST_INSTALL_ROOT:?}" ]]; then printf "%s\n" "root"; else printf "%s\n" "ispconfig"; fi' \
     '    exit 0' \
     'fi' \
-    'if [[ "$1" == "-c" && "$2" == "%G" ]]; then printf "%s\n" "ispconfig"; exit 0; fi' \
+    'if [[ "$1" == "-c" && "$2" == "%G" ]]; then' \
+    '    if [[ "$3" == "${DBSDNS_TEST_INSTALL_ROOT:?}" ]]; then printf "%s\n" "root"; else printf "%s\n" "ispconfig"; fi' \
+    '    exit 0' \
+    'fi' \
     "exec ${real_stat} \"\$@\"" > "${fake_bin}/stat"
 chmod +x "${fake_bin}/stat"
 
 printf '%s\n' \
     '#!/usr/bin/env bash' \
+    'if [[ "$#" -eq 0 || ("$#" -eq 1 && "$1" == "-u") ]]; then printf "%s\n" "${DBSDNS_TEST_EUID:-0}"; exit 0; fi' \
     'if [[ "$1" == "-u" && "$2" == "ispconfig" ]]; then printf "%s\n" "12345"; exit 0; fi' \
     "exec ${real_id} \"\$@\"" > "${fake_bin}/id"
 chmod +x "${fake_bin}/id"
@@ -127,8 +134,10 @@ export DBSDNS_TEST_SCHEMA_STATE_FILE="${schema_state_file}"
 export DBSDNS_TEST_SECRET_STATE_FILE="${secret_state_file}"
 export DBSDNS_TEST_PERMISSION_MARKER="${permission_marker}"
 export DBSDNS_TEST_SECURITY_DIRECTORY="${test_root}/security"
+export DBSDNS_TEST_INSTALL_ROOT="${test_root}"
 export DBSDNS_TEST_SODIUM_STATUS=0
 export DBSDNS_TEST_SOAP_STATUS=0
+export DBSDNS_TEST_EUID=0
 
 reset_layout() {
     rm -rf -- "${test_interface_root}"
@@ -142,6 +151,7 @@ reset_layout() {
 
     printf "%s\n" "<?php define('ISPC_APP_VERSION', '3.3.1p1');" \
         > "${test_interface_root}/lib/config.inc.php"
+    printf '%s\n' '<?php' > "${test_interface_root}/lib/app.inc.php"
     printf '%s\n' 'correct' > "${schema_state_file}"
     printf '%s\n' 'empty' > "${secret_state_file}"
     rm -f -- "${php_marker}" "${mariadb_marker}" "${permission_marker}"
@@ -168,6 +178,24 @@ apply_legacy_fixture() {
 run_installer() {
     bash "${repository_root}/scripts/install.sh" --web-root "${test_web_root}" "$@"
 }
+
+# The installer is a privileged state transition.  A non-root caller must be
+# rejected before PHP, database inspection, key creation or module staging.
+reset_layout
+export DBSDNS_TEST_EUID=1000
+
+if run_installer --dry-run > "${test_root}/non-root.out" 2>&1; then
+    printf '%s\n' 'Installer accepted a non-root caller.' >&2
+    exit 1
+fi
+
+if ! grep -Eiq 'root|privileg' "${test_root}/non-root.out" \
+    || [[ -e "${secret_key_file}" || -e "${test_web_root}/dbsdns" || -e "${php_marker}" || -e "${mariadb_marker}" ]]; then
+    printf '%s\n' 'Non-root rejection did not happen before all installation writes.' >&2
+    exit 1
+fi
+
+export DBSDNS_TEST_EUID=0
 
 # Required PHP extensions fail during preflight before database, key or module writes.
 reset_layout
@@ -211,6 +239,11 @@ if [[ -e "${test_web_root}/dbsdns" ]]; then
     exit 1
 fi
 
+if find "${test_root}/security" -maxdepth 1 -name '.dbsdns-stage-*' -print -quit | grep -q .; then
+    printf '%s\n' 'Fresh dry-run created a private staging workspace.' >&2
+    exit 1
+fi
+
 if [[ -e "${secret_key_file}" ]]; then
     printf '%s\n' 'Fresh dry-run created the credential key.' >&2
     exit 1
@@ -232,6 +265,11 @@ if [[
     || -e "${test_web_root}/dbsdns/integration/dns_soa_list.inc.php"
 ]]; then
     printf '%s\n' 'Fresh installation did not deploy only the core-free module.' >&2
+    exit 1
+fi
+
+if find "${test_root}/security" -maxdepth 1 -name '.dbsdns-stage-*' -print -quit | grep -q .; then
+    printf '%s\n' 'Successful installation left a private staging workspace behind.' >&2
     exit 1
 fi
 
@@ -263,6 +301,62 @@ if [[ -d "${test_interface_root}/dbsdns-backups" ]]; then
     exit 1
 fi
 
+# Activation failures restore an existing module atomically.  Fail only the
+# first move into the live target so rollback itself can complete.
+mv_failure_marker="${test_root}/mv-failure-once"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'if [[ "${DBSDNS_TEST_FAIL_MV:-0}" -eq 1 && "${1:-}" == "-T" && "${!#}" == "${DBSDNS_TEST_MODULE_TARGET:?}" && ! -e "${DBSDNS_TEST_MV_FAILURE_MARKER:?}" ]]; then' \
+    '    touch "${DBSDNS_TEST_MV_FAILURE_MARKER}"' \
+    '    exit 1' \
+    'fi' \
+    "exec ${real_mv} \"\$@\"" > "${fake_bin}/mv"
+chmod +x "${fake_bin}/mv"
+export DBSDNS_TEST_FAIL_MV=1
+export DBSDNS_TEST_MODULE_TARGET="${test_web_root}/dbsdns"
+export DBSDNS_TEST_MV_FAILURE_MARKER="${mv_failure_marker}"
+
+if run_installer > "${test_root}/activation-failure.out" 2>&1; then
+    printf '%s\n' 'Installer accepted a failed atomic module activation.' >&2
+    exit 1
+fi
+
+export DBSDNS_TEST_FAIL_MV=0
+rm -f -- "${fake_bin}/mv" "${mv_failure_marker}"
+
+if [[ ! -f "${test_web_root}/dbsdns/.core-integration-none" \
+    || "$(sha256sum "${secret_key_file}" | awk '{print $1}')" != "${first_key_hash}" ]] \
+    || find "${test_root}/security" -maxdepth 1 -name '.dbsdns-stage-*' -print -quit | grep -q .; then
+    printf '%s\n' 'Failed module activation did not restore the existing module and clean its workspace.' >&2
+    exit 1
+fi
+
+# Signals immediately after either successful rename must still restore the
+# previous module. In particular no flag-assignment window may discard it.
+printf '%s\n' 'signal-marker' > "${test_web_root}/dbsdns/signal-marker.txt"
+printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    "${real_mv} \"\$@\" || exit \$?" \
+    'target="${!#}"' \
+    'if [[ "${DBSDNS_TEST_SIGNAL_PHASE:-}" == "prepare" && "$target" == */previous ]] || [[ "${DBSDNS_TEST_SIGNAL_PHASE:-}" == "activate" && "$target" == "${DBSDNS_TEST_MODULE_TARGET:?}" && " $* " == *"/module "* ]]; then' \
+    '    kill -TERM "$PPID"' \
+    'fi' > "${fake_bin}/mv"
+chmod +x "${fake_bin}/mv"
+for signal_phase in prepare activate; do
+    export DBSDNS_TEST_SIGNAL_PHASE="${signal_phase}"
+    if run_installer > "${test_root}/signal-${signal_phase}.out" 2>&1; then
+        printf 'Installer ignored a signal after the %s rename.\n' "${signal_phase}" >&2
+        exit 1
+    fi
+    if [[ ! -f "${test_web_root}/dbsdns/signal-marker.txt" ]] \
+        || find "${test_root}/security" -maxdepth 1 -name '.dbsdns-stage-*' -print -quit | grep -q .; then
+        printf 'Signal after %s rename lost the previous module or left staging.\n' "${signal_phase}" >&2
+        exit 1
+    fi
+done
+unset DBSDNS_TEST_SIGNAL_PHASE
+rm -f -- "${fake_bin}/mv"
+
 # A failed permission synchronization restores the previous module atomically.
 printf '%s\n' 'previous-module-marker' > "${test_web_root}/dbsdns/previous-module-marker.txt"
 export DBSDNS_TEST_PERMISSION_STATUS=1
@@ -275,7 +369,8 @@ fi
 export DBSDNS_TEST_PERMISSION_STATUS=0
 
 if [[ ! -f "${test_web_root}/dbsdns/previous-module-marker.txt" ]] \
-    || find "${test_web_root}" -maxdepth 1 -name '.dbsdns-*' -print -quit | grep -q .; then
+    || find "${test_web_root}" -maxdepth 1 -name '.dbsdns-*' -print -quit | grep -q . \
+    || find "${test_root}/security" -maxdepth 1 -name '.dbsdns-stage-*' -print -quit | grep -q .; then
     printf '%s\n' 'Failed staged deployment did not restore the previous module cleanly.' >&2
     exit 1
 fi
@@ -436,6 +531,26 @@ if ! grep -Fq 'external key is missing' "${test_root}/missing-key-with-secret.ou
     printf '%s\n' 'Missing credential key did not fail closed before creating a replacement.' >&2
     exit 1
 fi
+
+# If the permission CLI has possibly committed when interrupted, the verified
+# module must stay live and its old version must remain available for recovery.
+reset_layout
+run_installer > "${test_root}/before-permission-signal.out"
+printf 'old module\n' > "${test_web_root}/dbsdns/recovery-marker.txt"
+export DBSDNS_TEST_SIGNAL_PERMISSION=1
+if run_installer > "${test_root}/permission-signal.out" 2>&1; then
+    printf '%s\n' 'Installer ignored interruption at the permission commit boundary.' >&2
+    exit 1
+fi
+unset DBSDNS_TEST_SIGNAL_PERMISSION
+if [[ ! -f "${test_web_root}/dbsdns/zone_list.php" || -f "${test_web_root}/dbsdns/recovery-marker.txt" ]] \
+    || ! find "${test_root}/security" -path '*/previous/recovery-marker.txt' -print -quit | grep -q . \
+    || ! grep -Fq 'verified module remains active' "${test_root}/permission-signal.out"; then
+    printf '%s\n' 'Ambiguous permission commit removed the live module or lost its protected recovery copy.' >&2
+    exit 1
+fi
+run_installer > "${test_root}/permission-signal-retry.out"
+assert_original_core 'Retry after interrupted permission commit changed core'
 
 if grep -Eq '(^|[[:space:]])patch([[:space:]]|$)|--fuzz|dbsdns-native-dns\.patch' \
     "${repository_root}/scripts/install.sh"; then

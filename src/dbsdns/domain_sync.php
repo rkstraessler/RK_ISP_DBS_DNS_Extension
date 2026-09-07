@@ -1,7 +1,12 @@
 <?php
 
-require_once '../../lib/config.inc.php';
-require_once '../../lib/app.inc.php';
+$dbsdnsModuleRoot = __DIR__;
+$dbsdnsInterfaceRoot = dirname($dbsdnsModuleRoot, 2);
+
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRuntime.inc.php';
+DbsRuntime::installRequestGuard('Synchronisieren der DNS-Zonen');
+require_once $dbsdnsInterfaceRoot . '/lib/config.inc.php';
+require_once $dbsdnsInterfaceRoot . '/lib/app.inc.php';
 
 $app->auth->check_module_permissions('dbsdns');
 
@@ -10,16 +15,16 @@ if(!$app->auth->is_admin()) {
     die('Access denied.');
 }
 
-require_once 'lib/classes/DbsClient.inc.php';
-require_once 'lib/classes/DomainMatcher.inc.php';
-require_once 'lib/classes/ZoneCache.inc.php';
-require_once 'lib/classes/ZoneInventorySync.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsClient.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DomainMatcher.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/ZoneCache.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/ZoneInventorySync.inc.php';
 
 $language = $app->functions->check_language($_SESSION['s']['language']);
-$languageFile = 'lib/lang/' . $language . '_dbsdns.lng';
+$languageFile = DbsRuntime::languagePath($language, 'dbsdns');
 
 if(!is_file($languageFile)) {
-    $languageFile = 'lib/lang/en_dbsdns.lng';
+    $languageFile = DbsRuntime::languagePath('en', 'dbsdns');
 }
 
 include $languageFile;
@@ -85,12 +90,13 @@ try {
 } catch (ZoneInventorySyncException $exception) {
     $syncError = $wb['domain_sync_error_txt'];
 } catch (Throwable $exception) {
+    DbsRuntime::logUnexpected($app, $exception, 'Synchronisieren der DNS-Zonen');
     $syncError = $wb['domain_sync_error_txt'];
 }
 
 $app->uses('tpl');
 $app->tpl->newTemplate('form.tpl.htm');
-$app->tpl->setInclude('content_tpl', 'templates/domain_sync.htm');
+$app->tpl->setInclude('content_tpl', DbsRuntime::templatePath('domain_sync.htm'));
 $app->tpl->setVar($wb);
 $app->tpl->setVar('sync_successful', $syncSuccessful);
 $app->tpl->setVar('sync_error', $syncError, true);

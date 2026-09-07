@@ -16,9 +16,9 @@ Der Test ist nur bestanden, wenn alle Punkte erfüllt sind:
   keine der fünf verwalteten ISPConfig-Core-Dateien.
 - Installation, Update, Disable, Enable, Deinstallation und Neuinstallation
   funktionieren ohne manuelle Reparatur.
-- Einstellungen, verschlüsseltes Passwort, Cache und Berechtigungszuweisungen
-  bleiben bei Disable, Deinstallation und Neuinstallation nachvollziehbar
-  erhalten.
+- Einstellungen, verschlüsseltes Passwort, Cache und externer Schlüssel
+  bleiben bei Disable und Deinstallation erhalten. Modulzuweisungen werden
+  entfernt und bei der Neuinstallation anhand der Berechtigungen erneut gesetzt.
 - Ein Admin, ein berechtigter Reseller und ein berechtigter Kunde sehen genau
   die erwarteten Zonen; ein nicht berechtigter Kunde erhält keinen Zugriff.
 - Die UI löst echte DBS-SOAP-Anfragen aus und bestätigt den Zustand beim
@@ -58,6 +58,24 @@ Erwartet werden PHP 7.4 oder neuer sowie die Erweiterungen soap und sodium.
 Passwörter niemals in Befehlszeilen, Screenshots, Tickets oder Git-Dateien
 ablegen.
 
+Die Testquelle darf unter `/root` liegen und dort Root-only (`0700`) bleiben.
+Das ist der beabsichtigte Sicherheitszustand. Ein erfolgreicher
+Installationslauf liest diese Quelle als Root. Kein
+`chmod 0755` auf `/root`, das Release-Verzeichnis oder die Quellbäume
+ausführen. Die bestätigte frühere Fehlerursache war ein `cp`, das die Quelle
+unter `0700` über `runuser` als Panel-Benutzer lesen sollte; dadurch scheiterte
+die Installation trotz korrekter Zielberechtigungen.
+
+Vor dem Installationslauf festhalten, dass der geschützte Bereich und der
+Webroot dasselbe Dateisystem verwenden:
+
+```bash
+SECURITY_ROOT='/usr/local/ispconfig/security'
+WEB_ROOT='/usr/local/ispconfig/interface/web'
+stat -c '%d %n' "$SECURITY_ROOT" "$WEB_ROOT"
+test "$(stat -c '%d' "$SECURITY_ROOT")" = "$(stat -c '%d' "$WEB_ROOT")"
+```
+
 ## 2. Baseline und Snapshot
 
 Die Baseline muss vor der Erweiterung auf der unveränderten ISPConfig-Version
@@ -86,13 +104,39 @@ ispconfig-3.3.1p1-before-dbsdns anlegen. Wenn eine der fünf Dateien bereits
 verändert ist, den Test nicht als Clean-Install-Abnahme werten, sondern zuerst
 einen sauberen Snapshot herstellen.
 
+## 2a. Patch vor Veröffentlichung auf config-dev prüfen
+
+Solange `v1.0.1` noch nicht veröffentlicht wurde, kann der vorbereitete
+Commit mit demselben Installer geprüft werden. Die vollständige Commit-SHA
+aus dem Änderungsbericht einsetzen; einen frischen Snapshot und den
+Root-only-Testpfad aus Abschnitt 1 verwenden:
+
+```bash
+PATCH_COMMIT='<vollständige Commit-SHA>'
+PATCH_SOURCE="$TEST_ROOT/source-1.0.1"
+git clone --no-checkout https://github.com/rkstraessler/RK_ISP_DBS_DNS_Extension.git "$PATCH_SOURCE"
+git -C "$PATCH_SOURCE" checkout --detach "$PATCH_COMMIT"
+test "$(stat -c '%a' "$TEST_ROOT")" = '700'
+bash "$PATCH_SOURCE/scripts/install.sh" --dry-run
+bash "$PATCH_SOURCE/scripts/install.sh"
+```
+
+Danach Abschnitt 3a und die UI-/SOAP-/Rollenprüfungen aus Abschnitt 4 und 5
+ausführen. Für den Lebenszyklus denselben Installer erneut ausführen,
+anschließend `scripts/uninstall.sh` aus dieser Quelle zuerst mit `--dry-run`,
+dann ohne diese Option, und schließlich erneut installieren. Schlüsselhash,
+gespeicherte Credentials und Core-Prüfsummen müssen erhalten bleiben.
+Diese Quellcodeprüfung ersetzt nicht die spätere Abnahme des tatsächlichen
+Release-Pakets aus Abschnitt 3. Einen lokalen Paket-Build oder Release-Tag
+erzeugt sie nicht.
+
 ## 3. Release-Paket prüfen und direkt installieren
 
 Für diesen Pfad wird das versionierte Paket verwendet. VERSION muss auf die
 tatsächlich zu prüfende Release-Version zeigen:
 
 ```bash
-VERSION=1.0.0
+VERSION=1.0.1
 RELEASE_BASE_URL="https://github.com/rkstraessler/RK_ISP_DBS_DNS_Extension/releases/download/v$VERSION"
 
 curl -fL "$RELEASE_BASE_URL/dbsdns-$VERSION.pkg" \
@@ -118,9 +162,24 @@ RELEASE_DIR="$TEST_ROOT/release-$VERSION"
 mkdir -p "$RELEASE_DIR"
 unzip -q "$TEST_ROOT/dbsdns-$VERSION.pkg" -d "$RELEASE_DIR"
 
+RELEASE_SOURCE="$RELEASE_DIR/dbsdns/src/dbsdns"
+stat -c '%a %U:%G %n' "$TEST_ROOT" "$RELEASE_DIR" "$RELEASE_SOURCE"
+namei -l "$RELEASE_SOURCE"
+test "$(stat -c '%a' "$TEST_ROOT")" = '700'
+
 bash "$RELEASE_DIR/dbsdns/scripts/install.sh" --dry-run
 bash "$RELEASE_DIR/dbsdns/scripts/install.sh"
 ```
+
+Der Dry-Run ist eine reine Leseinspektion. Er darf weder einen
+`.dbsdns-stage-*`-Ordner unter `security/` noch einen Modul- oder
+Schlüsselzustand erzeugen und meldet ausdrücklich, dass Staging-, Kopier- und
+Runtime-Prüfung erst bei der echten Installation erfolgen. Die echte
+Installation legt den privaten Workspace unter
+`security/.dbsdns-stage-XXXXXX` mit `0700` an, kopiert als Root in das Kind
+`module`, prüft Manifest und Inhalte, normalisiert Besitz/Modi, testet das Kind
+als Panel-Laufzeitbenutzer und aktiviert es anschließend per Rename auf
+demselben Dateisystem.
 
 Erwartungen nach der Installation:
 
@@ -136,8 +195,76 @@ Der Schlüssel sollte als 0640 mit root und der ISPConfig-Panel-Gruppe
 angezeigt werden. Der direkte Skriptpfad registriert das Paket nicht im
 offiziellen ispc-Katalog; das ist bei diesem Vorabtest erwartbar.
 
+Bei einem Fehler vor `Module staging verified; starting persistent
+installation changes.` dürfen keine Datenbank-, Schlüssel- oder Moduldateien
+geändert sein. Bei einem Fehler danach bleiben bereits erfolgreich angelegte
+oder geprüfte Schema- und Schlüsseländerungen erhalten; ein bereits aktives
+altes Modul wird bei einem Aktivierungs- oder Berechtigungsfehler automatisch
+wiederhergestellt. Diese Reihenfolge muss im Installer-Log und anhand der
+vorher/nachher gespeicherten Schlüssel-Hashes und Tabellenstände nachvollzogen
+werden.
+
 Danach aus der ISPConfig-Oberfläche ab- und wieder anmelden, damit Modul- und
 Plugin-Caches neu geladen werden.
+
+## 3a. Pfad-, Laufzeit- und Nginx-Prüfung
+
+Die effektiven Benutzer und Gruppen werden aus der Installation und der
+aktiven Nginx-Konfiguration ermittelt. Keinen festen Namen wie `www-data`
+annehmen:
+
+```bash
+CONFIG='/usr/local/ispconfig/interface/lib/config.inc.php'
+INTERFACE='/usr/local/ispconfig/interface'
+WEB_ROOT="$INTERFACE/web"
+SECURITY_ROOT='/usr/local/ispconfig/security'
+ISPCONFIG_ROOT='/usr/local/ispconfig'
+PANEL_USER="$(stat -c '%U' "$CONFIG")"
+PANEL_GROUP="$(stat -c '%G' "$CONFIG")"
+NGINX_ID="$(nginx -T 2>/dev/null | awk '$1 == "user" {gsub(";", "", $2); gsub(";", "", $3); print $2, $3; exit}')"
+read -r NGINX_USER NGINX_GROUP <<< "$NGINX_ID"
+test -n "$NGINX_USER"
+if test -z "$NGINX_GROUP"; then NGINX_GROUP="$(id -gn "$NGINX_USER")"; fi
+id -nG "$NGINX_USER" | tr ' ' '\n' | grep -Fx "$PANEL_GROUP"
+
+stat -c '%a %U:%G %n' "$ISPCONFIG_ROOT" "$SECURITY_ROOT" "$SECURITY_ROOT/dbsdns" \
+  "$WEB_ROOT" "$WEB_ROOT/dbsdns" "$WEB_ROOT/dbsdns/zone_list.php"
+test "$(stat -c '%U' "$ISPCONFIG_ROOT")" = 'root'
+test "$((8#$(stat -c '%a' "$ISPCONFIG_ROOT") & 8#022))" -eq 0
+namei -l "$ISPCONFIG_ROOT"
+namei -l "$SECURITY_ROOT/dbsdns/credentials.key"
+namei -l "$WEB_ROOT/dbsdns/zone_list.php"
+printf 'panel=%s:%s nginx=%s:%s\n' "$PANEL_USER" "$PANEL_GROUP" "$NGINX_USER" "$NGINX_GROUP"
+runuser --user "$PANEL_USER" -- test -r "$WEB_ROOT/dbsdns/zone_list.php"
+runuser --user "$PANEL_USER" -- test -x "$WEB_ROOT/dbsdns"
+runuser --user "$PANEL_USER" -- test -r "$SECURITY_ROOT/dbsdns/credentials.key"
+runuser --user "$NGINX_USER" -- test -r "$WEB_ROOT/dbsdns/zone_list.php"
+runuser --user "$NGINX_USER" -- test -x "$WEB_ROOT/dbsdns"
+```
+
+Erwartet werden `security/dbsdns` mit `0750` und `root:panel_group`,
+`credentials.key` mit `0640` und `root:panel_group` sowie Webmodul-Besitz aus
+der geschützten ISPConfig-Konfiguration. Das DNS-Verzeichnis übernimmt die
+nativen Bits `& 0755` (typischerweise `0750`), PHP-Dateien die Bits `& 0644`
+(typischerweise `0640`). Der private Staging-Container darf für Panel- und
+Nginx-Benutzer nicht traversierbar sein; nur sein normalisiertes Kind wird
+aktiviert.
+
+Die neun fachlichen Einstiegspunkte sind `zone_list.php`, `zone_view.php`,
+`zone_settings.php`, `record_edit.php`, `record_delete.php`, `settings.php`,
+`assignment_list.php`, `assignment_edit.php` und `domain_sync.php`.
+`index.php` delegiert lediglich an die Zonenliste. Im Browser-Netzwerkfenster
+für jeden Einstiegspunkt einen gültigen, angemeldeten Request aufzeichnen:
+Seiten liefern bei vorhandener Berechtigung `200`, nicht authentifizierte
+Requests dürfen zum Login umleiten, und berechtigte Verweigerungen müssen
+`403` ergeben. Ungültige Zonen-/Record-IDs werden als `404` oder als
+fachlich kontrollierte `403` behandelt. `500` ist in jedem Fall ein Fehler.
+`record_delete.php` nur über die vorgesehene POST-Aktion mit frischem
+CSRF-Token testen; ein GET muss hier `405` liefern. `domain_sync.php` muss
+bereits per GET das Formular anzeigen; erst der POST mit frischem CSRF-Token
+führt die Synchronisierung aus. Erfolgreiche Schreibaktionen können mit
+einem Redirect zur Zonenansicht antworten. Nach Login, Rollenwechsel und erfolgreichem
+Update den Browser-Cache leeren oder hart neu laden und erneut anmelden.
 
 ## 4. Admin-Einstellungen und echte DBS-SOAP-Anfragen
 

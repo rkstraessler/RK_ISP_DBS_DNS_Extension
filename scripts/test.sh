@@ -31,5 +31,6 @@ done < <(find "${repository_root}/scripts" "${repository_root}/tests" -type f -n
 
 bash "${repository_root}/tests/InstallScriptTest.sh"
 bash "${repository_root}/tests/UninstallScriptTest.sh"
+bash "${repository_root}/tests/InstallPermissionsIntegrationTest.sh"
 
 printf '%s\n' 'All PHP and installer checks passed.'

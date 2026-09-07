@@ -1,11 +1,16 @@
 <?php
 
-require_once '../../lib/config.inc.php';
-require_once '../../lib/app.inc.php';
-require_once __DIR__ . '/lib/classes/DbsClient.inc.php';
-require_once __DIR__ . '/lib/classes/DbsRecordListRenderer.inc.php';
-require_once __DIR__ . '/lib/classes/DbsZoneAccess.inc.php';
-require_once __DIR__ . '/lib/classes/DbsZoneSettingsIdentity.inc.php';
+$dbsdnsModuleRoot = __DIR__;
+$dbsdnsInterfaceRoot = dirname($dbsdnsModuleRoot, 2);
+
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRuntime.inc.php';
+DbsRuntime::installRequestGuard('Laden der Zonenansicht');
+require_once $dbsdnsInterfaceRoot . '/lib/config.inc.php';
+require_once $dbsdnsInterfaceRoot . '/lib/app.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsClient.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsRecordListRenderer.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsZoneAccess.inc.php';
+require_once $dbsdnsModuleRoot . '/lib/classes/DbsZoneSettingsIdentity.inc.php';
 
 $app->auth->check_module_permissions('dbsdns');
 $app->uses('tpl');
@@ -73,12 +78,18 @@ try {
     $app->error($app->lng('dbsdns_zone_load_error_txt'));
     exit;
 } catch (Throwable $exception) {
-    $app->log('DBS DNS zone view failed (' . get_class($exception) . ').', LOGLEVEL_ERROR);
+    DbsRuntime::logUnexpected($app, $exception, 'Laden der Zonenansicht');
     $app->error($app->lng('dbsdns_zone_load_error_txt'));
     exit;
 }
 
-$app->tpl->newTemplate('templates/zone_view.htm');
+try {
+    $app->tpl->newTemplate(DbsRuntime::templatePath('zone_view.htm'));
+} catch (Throwable $exception) {
+    DbsRuntime::logUnexpected($app, $exception, 'Zonenansicht');
+    $app->error($app->lng('dbsdns_zone_load_error_txt'));
+    exit;
+}
 $app->tpl->setVar($wb);
 $app->tpl->setVar('cache_id', $cacheId);
 $app->tpl->setVar('origin', $app->functions->htmlentities($zone['origin']));
@@ -108,10 +119,14 @@ if(
 
 $app->tpl->setVar('client', $app->functions->htmlentities($clientLabel));
 $recordRenderer = new DbsRecordListRenderer();
-$app->tpl->setVar(
-    'records_html',
-    $recordRenderer->render($zone['records'], $cacheId, $zone['origin'])
-);
+try {
+    $recordsHtml = $recordRenderer->render($zone['records'], $cacheId, $zone['origin']);
+} catch (Throwable $exception) {
+    DbsRuntime::logUnexpected($app, $exception, 'DNS-Einträge der Zonenansicht');
+    $app->error($app->lng('dbsdns_zone_load_error_txt'));
+    exit;
+}
+$app->tpl->setVar('records_html', $recordsHtml);
 
 foreach(array('show_info_msg', 'show_warning_msg', 'show_error_msg') as $messageName) {
     if(!isset($_SESSION[$messageName])) {
