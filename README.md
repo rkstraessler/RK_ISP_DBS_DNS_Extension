@@ -10,6 +10,30 @@ ISPConfig-Erweiterung zur Verwaltung von DNS-Zonen und DNS-Records über das Dom
 - Verschlüsselte DBS-Zugangsdaten außerhalb des Webroots
 - Idempotente Installation mit Dry-Run und sicherer Migration älterer Core-Anpassungen
 
+## Screenshots
+
+Die folgenden redigierten Ausschnitte zeigen die Erweiterung in einer
+angemeldeten ISPConfig-Testinstanz. Die Ansichten wurden ausschließlich
+readonly aufgenommen; es wurden keine Einstellungen gespeichert und keine
+Datensätze verändert. Kunden-, Firmen-, Domain-, IP-, Zugangsdaten und andere
+identifizierende Werte sind mit `[zensiert]` abgedeckt.
+
+| DNS-Zonen | DBS-DNS-Übersicht |
+| --- | --- |
+| ![DNS-Zonenübersicht](docs/screenshots/dns-zones-overview.png) | ![DBS-DNS-Übersicht](docs/screenshots/dbs-dns-overview.png) |
+
+| Konflikte | Domains aktualisieren |
+| --- | --- |
+| ![DBS-DNS-Konflikte](docs/screenshots/dbs-dns-conflicts.png) | ![DBS-Domains aktualisieren](docs/screenshots/dbs-domains-update.png) |
+
+| Verbindungseinstellungen | DNS-Zonen-Editor |
+| --- | --- |
+| ![DBS-DNS-Einstellungen](docs/screenshots/dbs-dns-settings.png) | ![DNS-Zonen-Editor](docs/screenshots/dns-zone-editor.png) |
+
+| Record-Formular |
+| --- |
+| ![DNS-A-Record-Formular](docs/screenshots/dns-a-form.png) |
+
 ## Voraussetzungen / unterstützte ISPConfig-Version
 
 - ISPConfig **3.3.1p1** (exakt; andere Versionen werden sicher abgewiesen)
