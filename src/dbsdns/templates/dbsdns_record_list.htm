@@ -1,0 +1,67 @@
+<div class="pnl_toolsarea">
+    <p class="fieldset-legend">{tmpl_var name="toolsarea_head_txt"}</p>
+    <div class="buttons topbuttons">
+        <tmpl_loop name="record_buttons">
+            <button class="btn btn-default dns-record-btn formbutton-success" type="button" data-load-content="{tmpl_var name='link'}">{tmpl_var name="type"}</button>
+        </tmpl_loop>
+    </div>
+</div>
+
+<p class="fieldset-legend">{tmpl_var name="list_head_txt"}</p>
+<div class="table-wrapper marginTop15 dbsdns-record-table-wrapper">
+    <table class="table dbsdns-record-table">
+        <colgroup>
+            <col class="dbsdns-record-col-active" />
+            <col class="dbsdns-record-col-type" />
+            <col class="dbsdns-record-col-name" />
+            <col class="dbsdns-record-col-data" />
+            <col class="dbsdns-record-col-aux" />
+            <col class="dbsdns-record-col-ttl" />
+            <col class="dbsdns-record-col-actions" />
+        </colgroup>
+        <thead class="dark form-group-sm">
+            <tr>
+                <th class="tiny-col" data-column="active">{tmpl_var name="active_txt"}</th>
+                <th data-column="type">{tmpl_var name="type_txt"}</th>
+                <th data-column="name">{tmpl_var name="name_txt"}</th>
+                <th data-column="data">{tmpl_var name="data_txt"}</th>
+                <th data-column="aux">{tmpl_var name="aux_txt"}</th>
+                <th data-column="ttl">{tmpl_var name="ttl_txt"}</th>
+                <th class="small-col text-right dbsdns-record-actions">{tmpl_var name="search_limit"}</th>
+            </tr>
+            <tr>
+                <td><select class="form-control" name="search_active">{tmpl_var name="search_active"}</select></td>
+                <td><input class="form-control" type="text" name="search_type" value="{tmpl_var name='search_type'}" /></td>
+                <td><input class="form-control" type="text" name="search_name" value="{tmpl_var name='search_name'}" /></td>
+                <td><input class="form-control" type="text" name="search_data" value="{tmpl_var name='search_data'}" /></td>
+                <td><input class="form-control" type="text" name="search_aux" value="{tmpl_var name='search_aux'}" /></td>
+                <td><input class="form-control" type="text" name="search_ttl" value="{tmpl_var name='search_ttl'}" /></td>
+                <td class="text-right dbsdns-record-actions"><button type="button" class="btn btn-default formbutton-default formbutton-narrow" name="Filter" id="Filter" value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm" data-form-action="dbsdns/zone_view.php?id={tmpl_var name='parent_id'}"><span class="icon icon-filter"></span></button></td>
+            </tr>
+        </thead>
+        <tbody>
+            <tmpl_loop name="records">
+                <tr>
+                    <td>{tmpl_var name="active"}</td>
+                    <td>{tmpl_var name="type"}</td>
+                    <td class="dbsdns-record-cell"><span class="dbsdns-record-value">{tmpl_var name="name"}</span></td>
+                    <td class="dbsdns-record-cell"><span class="dbsdns-record-value">{tmpl_var name="data"}</span></td>
+                    <td>{tmpl_var name="aux"}</td>
+                    <td>{tmpl_var name="ttl"}</td>
+                    <td class="text-right dbsdns-record-actions">
+                        <tmpl_if name="can_edit">
+                            <button class="btn btn-default formbutton-default formbutton-narrow" type="button" data-load-content="{tmpl_var name='edit_link'}"><span class="icon icon-edit"></span></button>
+                        </tmpl_if>
+                        <tmpl_if name="can_delete">
+                            <button class="btn btn-default formbutton-danger formbutton-narrow" type="button" data-dbsdns-delete-action="dbsdns/record_delete.php" data-dbsdns-delete-id="{tmpl_var name='id'}" data-dbsdns-delete-csrf-id="{tmpl_var name='csrf_id'}" data-dbsdns-delete-csrf-key="{tmpl_var name='csrf_key'}" data-dbsdns-delete-confirmation="{tmpl_var name='delete_confirmation'}"><span class="icon icon-delete"></span></button>
+                        </tmpl_if>
+                    </td>
+                </tr>
+            </tmpl_loop>
+            <tmpl_unless name="records">
+                <tr class="tbl_row_noresults"><td colspan="7">{tmpl_var name="globalsearch_noresults_text_txt"}</td></tr>
+            </tmpl_unless>
+        </tbody>
+        <tfoot><tr><td colspan="7">{tmpl_var name="paging"}</td></tr></tfoot>
+    </table>
+</div>

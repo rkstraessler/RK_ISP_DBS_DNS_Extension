@@ -1,0 +1,14 @@
+--- a/dns/dns_edit_base.php
++++ b/dns/dns_edit_base.php
+@@ -45,9 +45,6 @@
+ 	'form/dns_aaaa.tform.php' => true,
+ 	'form/dns_cname.tform.php' => true,
+-	'form/dns_mx.tform.php' => true,
+-	'form/dns_ns.tform.php' => true,
+-	'form/dns_srv.tform.php' => true,
+-	'form/dns_txt.tform.php' => true
++	'form/dns_mx.tform.php' => true
+ );
+ 
+ if($dbsdnsRequestedZoneId < 0 && isset($dbsdnsSupportedRecordForms[$tform_def_file])) {
+

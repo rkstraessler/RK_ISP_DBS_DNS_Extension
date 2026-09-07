@@ -1,0 +1,64 @@
+<link rel="stylesheet" href="dbsdns/css/dbsdns-ui.css" />
+
+<div class="dbsdns-mutation-root dbsdns-record-form" data-dbsdns-zone="{tmpl_var name='zone'}">
+    <div class="dbsdns-blocking-region" data-dbsdns-region="record-form" aria-busy="false">
+        <div class="dbsdns-loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+            <span class="dbsdns-loading-spinner" aria-hidden="true"></span>
+            <span>{tmpl_var name="loading_txt"}</span>
+        </div>
+
+        <div class="form-group">
+            <label for="name" class="col-sm-3 control-label">{tmpl_var name="name_txt"}</label>
+            <div class="col-sm-9">
+                <input type="text" name="name" id="name" value="{tmpl_var name='name'}" class="form-control" aria-describedby="dbsdns-name-hint" autofocus />
+                <p class="help-block" id="dbsdns-name-hint">{tmpl_var name="name_hint_txt"}</p>
+            </div>
+        </div>
+
+        <tmpl_if name="show_srv">
+            <div class="form-group">
+                <label for="target" class="col-sm-3 control-label">{tmpl_var name="target_label_txt"}</label>
+                <div class="col-sm-9">
+                    <input type="text" name="target" id="target" value="{tmpl_var name='target'}" class="form-control" aria-describedby="dbsdns-target-hint" />
+                    <p class="help-block" id="dbsdns-target-hint">{tmpl_var name="target_hint_txt"}</p>
+                </div>
+            </div>
+            <div class="form-group"><label for="weight" class="col-sm-3 control-label">{tmpl_var name="weight_txt"}</label><div class="col-sm-9"><input type="text" name="weight" id="weight" value="{tmpl_var name='weight'}" class="form-control" /></div></div>
+            <div class="form-group"><label for="port" class="col-sm-3 control-label">{tmpl_var name="port_txt"}</label><div class="col-sm-9"><input type="text" name="port" id="port" value="{tmpl_var name='port'}" class="form-control" /></div></div>
+        <tmpl_else>
+            <div class="form-group">
+                <label for="data" class="col-sm-3 control-label">{tmpl_var name="data_label_txt"}</label>
+                <div class="col-sm-9">
+                    <input type="text" name="data" id="data" value="{tmpl_var name='data'}" class="form-control" aria-describedby="dbsdns-data-hint" />
+                    <tmpl_if name="data_hint_txt"><p class="help-block" id="dbsdns-data-hint">{tmpl_var name="data_hint_txt"}</p></tmpl_if>
+                </div>
+            </div>
+        </tmpl_if>
+
+        <tmpl_if name="show_aux">
+            <div class="form-group"><label for="aux" class="col-sm-3 control-label">{tmpl_var name="aux_txt"}</label><div class="col-sm-9"><input type="text" name="aux" id="aux" value="{tmpl_var name='aux'}" class="form-control" /></div></div>
+        </tmpl_if>
+
+        <div class="form-group"><label for="ttl" class="col-sm-3 control-label">{tmpl_var name="ttl_txt"}</label><div class="col-sm-9"><input type="text" name="ttl" id="ttl" value="{tmpl_var name='ttl'}" class="form-control" /></div></div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">{tmpl_var name="active_txt"}</label>
+            <div class="col-sm-9">
+                <div class="checkbox"><label><input type="checkbox" checked="checked" disabled="disabled" aria-describedby="dbsdns-active-hint" /> {tmpl_var name="active_txt"}</label></div>
+                <input type="hidden" name="active" value="Y" />
+                <p class="help-block" id="dbsdns-active-hint">{tmpl_var name="active_hint_txt"}</p>
+            </div>
+        </div>
+
+        <input type="hidden" name="id" value="0" />
+        <input type="hidden" name="zone" value="{tmpl_var name='zone'}" />
+        <input type="hidden" name="type" value="{tmpl_var name='type'}" />
+        <input type="hidden" name="record_token" value="{tmpl_var name='record_token'}" />
+
+        <div class="clear"><div class="right">
+            <button class="btn btn-default formbutton-success" type="button" value="{tmpl_var name='btn_save_txt'}" data-dbsdns-mutation="record-save" data-submit-form="pageForm" data-form-action="dbsdns/record_edit.php">{tmpl_var name="btn_save_txt"}</button>
+            <button class="btn btn-default formbutton-default" type="button" value="{tmpl_var name='btn_cancel_txt'}" data-load-content="dbsdns/zone_view.php?id={tmpl_var name='zone'}">{tmpl_var name="btn_cancel_txt"}</button>
+        </div></div>
+    </div>
+</div>
+
+<script src="dbsdns/js/dbsdns-mutation-lock.js"></script>

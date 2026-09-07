@@ -1,0 +1,22 @@
+--- a/dns/dns_soa_edit.php
++++ b/dns/dns_soa_edit.php
+@@ -46,1 +46,18 @@
++$dbsdnsRequestedId = isset($_REQUEST['id'])
++	? $app->functions->intval($_REQUEST['id'])
++	: 0;
++
++if($dbsdnsRequestedId < 0) {
++	$dbsdnsIntegrationFile = ISPC_WEB_PATH . '/dbsdns/integration/dns_soa_edit.inc.php';
++
++	if(!is_file($dbsdnsIntegrationFile)) {
++		$app->error($app->lng('error_no_view_permission'));
++	}
++
++	require $dbsdnsIntegrationFile;
++	exit;
++}
++
++unset($dbsdnsRequestedId);
++
+ // Loading classes
+

@@ -1,0 +1,30 @@
+--- a/dns/dns_edit_base.php
++++ b/dns/dns_edit_base.php
+@@ -41,1 +41,26 @@
++$dbsdnsRequestedZoneId = isset($_REQUEST['zone'])
++	? $app->functions->intval($_REQUEST['zone'])
++	: 0;
++$dbsdnsSupportedRecordForms = array(
++	'form/dns_aaaa.tform.php' => true,
++	'form/dns_cname.tform.php' => true,
++	'form/dns_mx.tform.php' => true,
++	'form/dns_ns.tform.php' => true,
++	'form/dns_srv.tform.php' => true,
++	'form/dns_txt.tform.php' => true
++);
++
++if($dbsdnsRequestedZoneId < 0 && isset($dbsdnsSupportedRecordForms[$tform_def_file])) {
++	$dbsdnsIntegrationFile = ISPC_WEB_PATH . '/dbsdns/integration/dns_record_edit.inc.php';
++
++	if(!is_file($dbsdnsIntegrationFile)) {
++		$app->error($app->lng('error_no_view_permission'));
++	}
++
++	require $dbsdnsIntegrationFile;
++	exit;
++}
++
++unset($dbsdnsRequestedZoneId, $dbsdnsSupportedRecordForms);
++
+ class dns_page_action extends tform_actions {
+

@@ -1,0 +1,47 @@
+<div class="page-header">
+    <h1>{tmpl_var name="list_head_txt"}</h1>
+</div>
+<p>{tmpl_var name="list_desc_txt"}</p>
+
+<p class="fieldset-legend">{tmpl_var name="list_head_txt"}</p>
+<div class="table-wrapper marginTop15">
+    <table class="table">
+        <thead class="dark form-group-sm">
+            <tr>
+                <th class="tiny-col" data-column="active">{tmpl_var name="active_txt"}</th>
+                <th data-column="server_id">{tmpl_var name="server_id_txt"}</th>
+                <th data-column="client_name">{tmpl_var name="client_txt"}</th>
+                <th data-column="origin">{tmpl_var name="origin_txt"}</th>
+                <th data-column="provider_status">{tmpl_var name="status_txt"}</th>
+                <th class="small-col text-right">{tmpl_var name="search_limit"}</th>
+            </tr>
+            <tr>
+                <td><select class="form-control" name="search_active">{tmpl_var name="search_active"}</select></td>
+                <td><select class="form-control" name="search_server_id">{tmpl_var name="search_server_id"}</select></td>
+                <td><input class="form-control" type="text" name="search_client_name" value="{tmpl_var name='search_client_name'}" /></td>
+                <td><input class="form-control" type="text" name="search_origin" value="{tmpl_var name='search_origin'}" /></td>
+                <td><input class="form-control" type="text" name="search_provider_status" value="{tmpl_var name='search_provider_status'}" /></td>
+                <td class="text-right">
+                    <button type="button" class="btn btn-default formbutton-default formbutton-narrow" name="Filter" id="Filter" value="{tmpl_var name='filter_txt'}" data-submit-form="pageForm" data-form-action="dbsdns/zone_list.php"><span class="icon icon-filter"></span></button>
+                </td>
+            </tr>
+        </thead>
+        <tbody>
+            <tmpl_loop name="records">
+                <tr>
+                    <td><a href="#" data-load-content="dbsdns/zone_view.php?id={tmpl_var name='id'}">{tmpl_var name="active"}</a></td>
+                    <td><a href="#" data-load-content="dbsdns/zone_view.php?id={tmpl_var name='id'}">{tmpl_var name="server_id"}</a></td>
+                    <td><a href="#" data-load-content="dbsdns/zone_view.php?id={tmpl_var name='id'}">{tmpl_var name="client_name"}</a></td>
+                    <td><a href="#" data-load-content="dbsdns/zone_view.php?id={tmpl_var name='id'}" data-toggle="tooltip" data-placement="bottom" title="{tmpl_var name='origin'}">{tmpl_var name="origin"}</a></td>
+                    <td><a href="#" data-load-content="dbsdns/zone_view.php?id={tmpl_var name='id'}">{tmpl_var name="provider_status"}</a></td>
+                    <td class="text-right"><button class="btn btn-default formbutton-default formbutton-narrow" type="button" data-load-content="dbsdns/zone_view.php?id={tmpl_var name='id'}"><span class="icon icon-edit"></span></button></td>
+                </tr>
+            </tmpl_loop>
+            <tmpl_unless name="records">
+                <tr class="tbl_row_noresults"><td colspan="6">{tmpl_var name="globalsearch_noresults_text_txt"}</td></tr>
+            </tmpl_unless>
+        </tbody>
+        <tfoot><tr><td colspan="6">{tmpl_var name="paging"}</td></tr></tfoot>
+    </table>
+</div>
+

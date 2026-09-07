@@ -1,0 +1,1 @@
+# Intentionally empty: installer.php delegates deployment to the packaged lifecycle scripts.

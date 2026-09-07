@@ -1,0 +1,141 @@
+<div class='page-header'>
+    <h1>{tmpl_var name='assignment_edit_title_txt'}: {tmpl_var name='origin_display'}</h1>
+</div>
+
+<p>{tmpl_var name='assignment_edit_description_txt'}</p>
+
+<div class='buttons topbuttons'>
+    <button class='btn btn-default formbutton-default' type='button' data-load-content='dbsdns/assignment_list.php'>
+        {tmpl_var name='assignment_back_txt'}
+    </button>
+</div>
+
+<tmpl_if name='assignment_error'>
+    <div class='alert alert-danger' role='alert'>
+        {tmpl_var name='assignment_error'}
+    </div>
+</tmpl_if>
+
+<tmpl_if name='assignment_success'>
+    <div class='alert alert-success' role='status'>
+        {tmpl_var name='assignment_success'}
+    </div>
+</tmpl_if>
+
+<tmpl_if name='assignment_found'>
+    <input type='hidden' name='origin' value='{tmpl_var name="origin_value"}'>
+
+    <p class='fieldset-legend'>{tmpl_var name='assignment_detected_title_txt'}</p>
+
+    <div class='table-wrapper marginTop15'>
+        <table class='table table-condensed'>
+            <tbody>
+                <tr>
+                    <th>{tmpl_var name='assignment_status_txt'}</th>
+                    <td><span class='{tmpl_var name="detected_status_class"}'>{tmpl_var name='detected_status_label'}</span></td>
+                </tr>
+                <tr>
+                    <th>{tmpl_var name='assignment_client_txt'}</th>
+                    <td>{tmpl_var name='detected_client_label'}</td>
+                </tr>
+                <tr>
+                    <th>{tmpl_var name='assignment_reseller_txt'}</th>
+                    <td>{tmpl_var name='detected_reseller_label'}</td>
+                </tr>
+                <tr>
+                    <th>{tmpl_var name='assignment_sources_txt'}</th>
+                    <td>{tmpl_var name='detected_sources_label'}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <tmpl_if name='has_candidates'>
+        <p class='fieldset-legend'>{tmpl_var name='assignment_conflict_details_txt'}</p>
+
+        <div class='table-wrapper marginTop15'>
+            <table class='table'>
+                <thead class='dark form-group-sm'>
+                    <tr>
+                        <th>{tmpl_var name='assignment_group_txt'}</th>
+                        <th>{tmpl_var name='assignment_client_txt'}</th>
+                        <th>{tmpl_var name='assignment_reseller_txt'}</th>
+                        <th>{tmpl_var name='assignment_sources_txt'}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tmpl_loop name='candidates'>
+                        <tr>
+                            <td>{tmpl_var name='group_label'}</td>
+                            <td>{tmpl_var name='client_label'}</td>
+                            <td>{tmpl_var name='reseller_label'}</td>
+                            <td>{tmpl_var name='sources_label'}</td>
+                        </tr>
+                    </tmpl_loop>
+                </tbody>
+            </table>
+        </div>
+    </tmpl_if>
+
+    <tmpl_if name='has_unresolved_relation'>
+        <div class='alert alert-warning' role='alert'>
+            {tmpl_var name='assignment_unresolved_relation_txt'}
+        </div>
+    </tmpl_if>
+
+    <p class='fieldset-legend'>{tmpl_var name='assignment_native_title_txt'}</p>
+
+    <div class='table-wrapper marginTop15'>
+        <table class='table table-condensed'>
+            <tbody>
+                <tr>
+                    <th>{tmpl_var name='assignment_status_txt'}</th>
+                    <td><span class='{tmpl_var name="native_status_class"}'>{tmpl_var name='native_status_label'}</span></td>
+                </tr>
+                <tr>
+                    <th>{tmpl_var name='assignment_client_txt'}</th>
+                    <td>{tmpl_var name='native_client_label'}</td>
+                </tr>
+                <tr>
+                    <th>{tmpl_var name='assignment_reseller_txt'}</th>
+                    <td>{tmpl_var name='native_reseller_label'}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <tmpl_if name='can_assign'>
+        <p class='fieldset-legend'>{tmpl_var name='assignment_action_title_txt'}</p>
+
+        <tmpl_if name='can_confirm'>
+            <div class='form-group'>
+                <p>{tmpl_var name='assignment_confirm_help_txt'}</p>
+                <button class='btn btn-default formbutton-success' type='button' data-submit-form='pageForm' data-form-action='dbsdns/assignment_edit.php?action=confirm_detected'>
+                    {tmpl_var name='assignment_confirm_button_txt'}
+                </button>
+            </div>
+        </tmpl_if>
+
+        <div class='form-group'>
+            <label for='client_group_id'>{tmpl_var name='assignment_manual_client_txt'}</label>
+            <select class='form-control' id='client_group_id' name='client_group_id'>
+                {tmpl_var name='client_group_options'}
+            </select>
+            <span class='help-block'>{tmpl_var name='assignment_manual_help_txt'}</span>
+        </div>
+
+        <div class='clear'>
+            <div class='right'>
+                <button class='btn btn-default formbutton-success' type='button' data-submit-form='pageForm' data-form-action='dbsdns/assignment_edit.php?action=assign_selected'>
+                    {tmpl_var name='assignment_manual_button_txt'}
+                </button>
+            </div>
+        </div>
+    </tmpl_if>
+
+    <tmpl_unless name='can_assign'>
+        <div class='alert alert-info' role='status'>
+            {tmpl_var name='assignment_no_overwrite_txt'}
+        </div>
+    </tmpl_unless>
+</tmpl_if>

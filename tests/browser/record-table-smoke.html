@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>DBS Record Table Smoke</title>
+    <link rel="stylesheet" href="/src/dbsdns/css/dbsdns-ui.css">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; }
+        #pageContent { width: 760px; }
+        .dbsdns-record-table { border-collapse: collapse; }
+        .dbsdns-record-table th, .dbsdns-record-table td { border: 1px solid #ddd; padding: 6px; }
+        .dbsdns-record-actions .btn { height: 28px; width: 32px; }
+        .smoke-controls { margin-bottom: 12px; }
+    </style>
+    <script>
+        window.ISPConfig = {
+            registerHook: function(name, callback) {
+                window.dbsdnsAfterContentLoad = callback;
+            }
+        };
+    </script>
+</head>
+<body>
+<div id="pageContent">
+    <div class="smoke-controls">
+        <button id="smoke-search" type="button">Search</button>
+        <button id="smoke-sort" type="button">Sort</button>
+        <button id="smoke-page" type="button">Pagination</button>
+        <button id="smoke-reload" type="button">CRUD reload</button>
+    </div>
+    <div class="dbsdns-records-region">
+        <div class="table-wrapper dbsdns-record-table-wrapper">
+            <table class="dbsdns-record-table">
+                <colgroup>
+                    <col class="dbsdns-record-col-active">
+                    <col class="dbsdns-record-col-type">
+                    <col class="dbsdns-record-col-name">
+                    <col class="dbsdns-record-col-data">
+                    <col class="dbsdns-record-col-aux">
+                    <col class="dbsdns-record-col-ttl">
+                    <col class="dbsdns-record-col-actions">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Active</th><th>Type</th><th>Name</th><th>Data</th><th>Aux</th><th>TTL</th>
+                        <th class="dbsdns-record-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="smoke-rows">
+                    <tr data-kind="short"><td>Y</td><td>A</td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">www</span></td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">192.0.2.1</span></td><td>0</td><td>3600</td><td class="dbsdns-record-actions"><button class="btn">E</button><button class="btn">D</button></td></tr>
+                    <tr data-kind="cname"><td>Y</td><td>CNAME</td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">a-very-long-owner-name-for-cname</span></td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">an-extremely-long-canonical-target-hostname.subdomain.example.test.</span></td><td>0</td><td>3600</td><td class="dbsdns-record-actions"><button class="btn">E</button><button class="btn">D</button></td></tr>
+                    <tr data-kind="ipv6"><td>Y</td><td>AAAA</td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">ipv6</span></td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">2001:0db8:85a3:0000:0000:8a2e:0370:7334</span></td><td>0</td><td>3600</td><td class="dbsdns-record-actions"><button class="btn">E</button><button class="btn">D</button></td></tr>
+                    <tr data-kind="txt"><td>Y</td><td>TXT</td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">txt</span></td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">v=spf1 include:mail.example.test include:relay.example.test include:more.example.test -all</span></td><td>0</td><td>3600</td><td class="dbsdns-record-actions"><button class="btn">E</button><button class="btn">D</button></td></tr>
+                    <tr data-kind="mx"><td>Y</td><td>MX</td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">@</span></td><td class="dbsdns-record-cell"><span class="dbsdns-record-value">mail-gateway-with-a-long-name.example.test.</span></td><td>10</td><td>3600</td><td class="dbsdns-record-actions"><button class="btn">E</button><button class="btn">D</button></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script src="/src/dbsdns/js/dbsdns-record-table.js"></script>
+<script>
+    window.dbsdnsSmokeRows = document.querySelector('#smoke-rows').innerHTML;
+
+    function dbsdnsSmokeReload() {
+        if(typeof window.dbsdnsAfterContentLoad === 'function') {
+            window.dbsdnsAfterContentLoad();
+        } else {
+            window.DbsDnsRecordTable.init();
+        }
+    }
+
+    document.querySelector('#smoke-search').onclick = function() {
+        Array.prototype.forEach.call(document.querySelectorAll('#smoke-rows tr'), function(row) {
+            row.style.display = row.getAttribute('data-kind') === 'cname' ? '' : 'none';
+        });
+        dbsdnsSmokeReload();
+    };
+    document.querySelector('#smoke-sort').onclick = function() {
+        var body = document.querySelector('#smoke-rows');
+        Array.prototype.slice.call(body.children).reverse().forEach(function(row) {
+            body.appendChild(row);
+        });
+        dbsdnsSmokeReload();
+    };
+    document.querySelector('#smoke-page').onclick = function() {
+        document.querySelector('#smoke-rows').innerHTML = window.dbsdnsSmokeRows;
+        dbsdnsSmokeReload();
+    };
+    document.querySelector('#smoke-reload').onclick = function() {
+        var body = document.querySelector('#smoke-rows');
+        body.innerHTML = body.innerHTML;
+        dbsdnsSmokeReload();
+    };
+</script>
+</body>
+</html>

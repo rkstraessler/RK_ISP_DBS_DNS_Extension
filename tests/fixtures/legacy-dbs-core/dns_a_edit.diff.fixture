@@ -1,0 +1,25 @@
+--- a/dns/dns_a_edit.php
++++ b/dns/dns_a_edit.php
+@@ -45,1 +45,21 @@
++$dbsdnsRequestedZoneId = isset($_REQUEST['zone'])
++	? $app->functions->intval($_REQUEST['zone'])
++	: 0;
++$dbsdnsRequestedRecordId = isset($_REQUEST['id']) && is_scalar($_REQUEST['id'])
++	? trim((string)$_REQUEST['id'])
++	: '';
++
++if($dbsdnsRequestedZoneId < 0 || strncmp($dbsdnsRequestedRecordId, 'dbs1_', 5) === 0) {
++	$dbsdnsIntegrationFile = ISPC_WEB_PATH . '/dbsdns/integration/dns_a_edit.inc.php';
++
++	if(!is_file($dbsdnsIntegrationFile)) {
++		$app->error($app->lng('error_no_view_permission'));
++	}
++
++	require $dbsdnsIntegrationFile;
++	exit;
++}
++
++unset($dbsdnsRequestedZoneId, $dbsdnsRequestedRecordId);
++
+ // Loading classes
+

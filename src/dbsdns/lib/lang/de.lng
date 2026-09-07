@@ -1,0 +1,12 @@
+<?php
+
+$wb['DBS DNS management'] = 'DBS DNS Verwaltung';
+$wb['Overview'] = 'Übersicht';
+$wb['Assignments'] = 'Zuordnungen';
+$wb['Assigned domains'] = 'Zugewiesene Domains';
+$wb['Conflicts'] = 'Konflikte';
+$wb['Unassigned domains'] = 'Nicht zugewiesene Domains';
+$wb['Refresh domain inventory'] = 'DBS Domains aktualisieren';
+$wb['DNS'] = 'DNS';
+$wb['Zones'] = 'Zonen';
+$wb['DBS DNS'] = 'DBS DNS';

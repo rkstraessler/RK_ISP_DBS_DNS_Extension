@@ -1,0 +1,174 @@
+<div class='page-header'>
+    <h1>{tmpl_var name='assignment_title_txt'}</h1>
+</div>
+
+<p>{tmpl_var name='assignment_description_txt'}</p>
+
+<p>
+    <strong>{tmpl_var name='settings_connection_status_txt'}:</strong>
+    <span class='{tmpl_var name="connection_overview_class"}'>{tmpl_var name='connection_overview_label'}</span>
+</p>
+
+<tmpl_if name='assignment_error'>
+    <div class='alert alert-danger' role='alert'>
+        {tmpl_var name='assignment_error'}
+    </div>
+</tmpl_if>
+
+<tmpl_if name='assignment_success'>
+    <div class='alert alert-success' role='status'>
+        {tmpl_var name='assignment_success'}
+    </div>
+</tmpl_if>
+
+<tmpl_if name='assignment_warning'>
+    <div class='alert alert-warning' role='alert'>
+        {tmpl_var name='assignment_warning'}
+    </div>
+</tmpl_if>
+
+<tmpl_unless name='assignment_error'>
+    <div class='table-wrapper marginTop15'>
+        <table class='table table-condensed'>
+            <tbody>
+                <tr>
+                    <th>{tmpl_var name='assignment_count_total_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='count_total'}</td>
+                    <th>{tmpl_var name='assignment_count_assigned_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='count_assigned'}</td>
+                    <th>{tmpl_var name='assignment_count_saved_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='count_saved'}</td>
+                </tr>
+                <tr>
+                    <th>{tmpl_var name='assignment_count_conflict_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='count_conflict'}</td>
+                    <th>{tmpl_var name='assignment_count_unassigned_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='count_unassigned'}</td>
+                    <th>{tmpl_var name='assignment_bulk_eligible_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='bulk_eligible_count'}</td>
+                </tr>
+                <tr>
+                    <th>{tmpl_var name='domain_sync_inventory_total_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='inventory_total_count'}</td>
+                    <th>{tmpl_var name='domain_sync_inventory_present_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='inventory_present_count'}</td>
+                    <th>{tmpl_var name='domain_sync_last_synced_txt'}</th>
+                    <td class='text-right'>{tmpl_var name='inventory_last_synced_at'}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class='buttons topbuttons marginTop15'>
+        <tmpl_if name='can_bulk_assign'>
+            <button class='btn btn-default formbutton-success' type='button' data-submit-form='pageForm' data-form-action='dbsdns/assignment_list.php?action=bulk_assign'>
+                {tmpl_var name='assignment_bulk_button_txt'} ({tmpl_var name='bulk_eligible_count'})
+            </button>
+        </tmpl_if>
+        <tmpl_unless name='can_bulk_assign'>
+            <button class='btn btn-default formbutton-success' type='button' disabled='disabled'>
+                {tmpl_var name='assignment_bulk_button_txt'} (0)
+            </button>
+        </tmpl_unless>
+        <span class='help-block'>{tmpl_var name='assignment_bulk_help_txt'}</span>
+    </div>
+
+    <div class='buttons topbuttons marginTop15' role='group' aria-label='{tmpl_var name="assignment_filter_aria_txt"}'>
+        <button class='{tmpl_var name="filter_all_class"}' type='button' data-load-content='dbsdns/assignment_list.php?status=all'>
+            {tmpl_var name='assignment_filter_all_txt'}
+        </button>
+        <button class='{tmpl_var name="filter_saved_class"}' type='button' data-load-content='dbsdns/assignment_list.php?status=saved'>
+            {tmpl_var name='assignment_filter_saved_txt'}
+        </button>
+        <button class='{tmpl_var name="filter_assigned_class"}' type='button' data-load-content='dbsdns/assignment_list.php?status=assigned'>
+            {tmpl_var name='assignment_filter_assigned_txt'}
+        </button>
+        <button class='{tmpl_var name="filter_conflict_class"}' type='button' data-load-content='dbsdns/assignment_list.php?status=conflict'>
+            {tmpl_var name='assignment_filter_conflict_txt'}
+        </button>
+        <button class='{tmpl_var name="filter_unassigned_class"}' type='button' data-load-content='dbsdns/assignment_list.php?status=unassigned'>
+            {tmpl_var name='assignment_filter_unassigned_txt'}
+        </button>
+    </div>
+
+    <div class='form-group form-group-sm marginTop15'>
+        <div class='col-sm-8'>
+            <input class='form-control' type='text' name='search_term' value="{tmpl_var name='search_term'}" placeholder="{tmpl_var name='assignment_search_txt'}" />
+        </div>
+        <div class='col-sm-2'>
+            <select class='form-control' name='page_size' aria-label="{tmpl_var name='assignment_rows_txt'}">
+                <option value='10'{tmpl_var name='page_size_10_selected'}>10</option>
+                <option value='25'{tmpl_var name='page_size_25_selected'}>25</option>
+                <option value='50'{tmpl_var name='page_size_50_selected'}>50</option>
+                <option value='100'{tmpl_var name='page_size_100_selected'}>100</option>
+            </select>
+        </div>
+        <div class='col-sm-2 text-right'>
+            <button class='btn btn-default formbutton-default' type='button' data-submit-form='pageForm' data-form-action='dbsdns/assignment_list.php?action=filter&amp;status={tmpl_var name="current_filter"}'>
+                {tmpl_var name='assignment_search_button_txt'}
+            </button>
+        </div>
+    </div>
+
+    <div class='table-wrapper marginTop15'>
+        <table class='table'>
+            <thead class='dark form-group-sm'>
+                <tr>
+                    <th><button class='btn btn-link' type='button' data-load-content="{tmpl_var name='sort_domain_link'}">{tmpl_var name='assignment_domain_txt'}</button></th>
+                    <th><button class='btn btn-link' type='button' data-load-content="{tmpl_var name='sort_status_link'}">{tmpl_var name='assignment_detection_txt'}</button></th>
+                    <th><button class='btn btn-link' type='button' data-load-content="{tmpl_var name='sort_client_link'}">{tmpl_var name='assignment_client_txt'}</button></th>
+                    <th><button class='btn btn-link' type='button' data-load-content="{tmpl_var name='sort_reseller_link'}">{tmpl_var name='assignment_reseller_txt'}</button></th>
+                    <th>{tmpl_var name='assignment_native_txt'}</th>
+                    <th>{tmpl_var name='assignment_sources_txt'}</th>
+                    <th class='small-col text-right'>{tmpl_var name='assignment_action_txt'}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tmpl_loop name='records'>
+                    <tr>
+                        <td>{tmpl_var name='domain_name'}</td>
+                        <td><span class='{tmpl_var name="status_class"}'>{tmpl_var name='status_label'}</span></td>
+                        <td>{tmpl_var name='client_label'}</td>
+                        <td>{tmpl_var name='reseller_label'}</td>
+                        <td>
+                            <span class='{tmpl_var name="native_status_class"}'>{tmpl_var name='native_status_label'}</span><br>
+                            <small>{tmpl_var name='native_client_label'}</small>
+                        </td>
+                        <td>{tmpl_var name='sources_label'}</td>
+                        <td class='text-right'>
+                            <button class='btn btn-default formbutton-default formbutton-narrow' type='button' data-load-content="dbsdns/assignment_edit.php?origin={tmpl_var name='origin_query'}">
+                                {tmpl_var name='assignment_manage_txt'}
+                            </button>
+                        </td>
+                    </tr>
+                </tmpl_loop>
+                <tmpl_unless name='records'>
+                    <tr class='tbl_row_noresults'>
+                        <td colspan='7'>{tmpl_var name='assignment_no_results_txt'}</td>
+                    </tr>
+                </tmpl_unless>
+            </tbody>
+            <tmpl_if name='show_pagination'>
+                <tfoot>
+                    <tr>
+                        <td colspan='7'>
+                            <div class='text-center'>
+                                <tmpl_if name='has_previous'>
+                                    <button class='btn btn-default formbutton-default formbutton-narrow' type='button' data-load-content="dbsdns/assignment_list.php?page={tmpl_var name='previous_page'}{tmpl_var name='list_query'}">
+                                        {tmpl_var name='assignment_previous_txt'}
+                                    </button>
+                                </tmpl_if>
+                                <span>{tmpl_var name='assignment_results_txt'}: {tmpl_var name='filtered_count'} · {tmpl_var name='assignment_page_txt'} {tmpl_var name='current_page'}</span>
+                                <tmpl_if name='has_more'>
+                                    <button class='btn btn-default formbutton-default formbutton-narrow' type='button' data-load-content="dbsdns/assignment_list.php?page={tmpl_var name='next_page'}{tmpl_var name='list_query'}">
+                                        {tmpl_var name='assignment_next_txt'}
+                                    </button>
+                                </tmpl_if>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </tmpl_if>
+        </table>
+    </div>
+</tmpl_unless>

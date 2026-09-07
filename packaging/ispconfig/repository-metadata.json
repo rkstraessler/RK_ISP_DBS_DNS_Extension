@@ -1,0 +1,15 @@
+{
+  "name": "dbsdns",
+  "title": "DBS DNS",
+  "version": "1.0.0",
+  "date": "2026-09-04",
+  "ispconfig_version": "3.3",
+  "os": "all",
+  "dependencies": "",
+  "license": "n",
+  "trial": 0,
+  "description": "Manage DNS zones and records from the Domain Ordering System in ISPConfig.",
+  "postinstall_info": "Configure and test the provider connection under DBS DNS Management > Settings.",
+  "free_limits": "Open source; no feature limits.",
+  "link": "https://git.reikem.net/reikem/ispconfig-dbs-dns"
+}

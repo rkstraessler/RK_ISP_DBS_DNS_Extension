@@ -1,0 +1,244 @@
+name: Release ISPConfig package
+
+on:
+  release:
+    types:
+      - published
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+env:
+  EXTENSION_NAME: dbsdns
+  LC_ALL: C
+  TZ: UTC
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }} tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '7.4'
+          - '8.2'
+    env:
+      RELEASE_SHA: ${{ github.sha }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Validate tag and version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${RELEASE_TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf 'Release tag must be strict SemVer (for example v1.0.0): %s\n' "${RELEASE_TAG}" >&2
+            exit 1
+          fi
+
+          version="${RELEASE_TAG#v}"
+          repository_version="$(tr -d '\r\n' < VERSION)"
+
+          if ((${#version} > 10)) || [[ "${repository_version}" != "${version}" ]]; then
+            printf 'Release tag and VERSION differ or exceed the ISPConfig version limit.\n' >&2
+            exit 1
+          fi
+
+          if [[ "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
+            printf 'The checked-out release tag does not match the release commit.\n' >&2
+            exit 1
+          fi
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: soap, sodium
+          coverage: none
+
+      - name: Run repository checks
+        run: bash scripts/test.sh
+
+      - name: Run ShellCheck
+        if: matrix.php == '8.2'
+        shell: bash
+        run: |
+          set -euo pipefail
+          find scripts tests -type f -name '*.sh' -print0 \
+            | sort -z \
+            | xargs -0 shellcheck --severity=warning
+
+  release-package:
+    name: Build and publish ISPConfig package
+    needs:
+      - tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      RELEASE_SHA: ${{ github.sha }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Build and verify the ISPConfig package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 022
+
+          if [[ ! "${RELEASE_TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf 'Release tag must be strict SemVer (for example v1.0.0): %s\n' "${RELEASE_TAG}" >&2
+            exit 1
+          fi
+
+          version="${RELEASE_TAG#v}"
+          repository_version="$(tr -d '\r\n' < VERSION)"
+
+          if ((${#version} > 10)) || [[ "${repository_version}" != "${version}" ]]; then
+            printf 'Release tag and VERSION differ or exceed the ISPConfig version limit.\n' >&2
+            exit 1
+          fi
+
+          if [[ "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
+            printf 'The checked-out release tag does not match the release commit.\n' >&2
+            exit 1
+          fi
+
+          if ! jq -e --arg version "${version}" \
+            '.name == "dbsdns" and .version == $version and .ispconfig_version == "3.3"' \
+            packaging/ispconfig/repository-metadata.json >/dev/null; then
+            printf 'Repository metadata does not match the release.\n' >&2
+            exit 1
+          fi
+
+          if ! grep -Fq "## ${version} " CHANGELOG.md; then
+            printf 'CHANGELOG.md has no entry for version %s.\n' "${version}" >&2
+            exit 1
+          fi
+
+          runtime_paths=(
+            LICENSE
+            install
+            migration
+            src
+            scripts/install.sh
+            scripts/uninstall.sh
+          )
+
+          symlinks="$(git ls-files -s -- "${runtime_paths[@]}" | awk '$1 == "120000" { print $4 }')"
+          if [[ -n "${symlinks}" ]]; then
+            printf 'Symbolic links are not allowed in the package:\n%s\n' "${symlinks}" >&2
+            exit 1
+          fi
+
+          package_workspace="$(mktemp -d "${RUNNER_TEMP}/${EXTENSION_NAME}-release.XXXXXX")"
+          trap 'rm -rf -- "${package_workspace}"' EXIT
+          package_root="${package_workspace}/${EXTENSION_NAME}"
+          package_name="${EXTENSION_NAME}-${version}.pkg"
+          package_path="${RUNNER_TEMP}/${package_name}"
+          mkdir -p -- "${package_root}"
+
+          git archive --format=tar HEAD "${runtime_paths[@]}" \
+            | tar -xf - -C "${package_root}"
+          printf '%s' "${version}" > "${package_root}/version"
+
+          required_files=(
+            LICENSE
+            install/installer.php
+            install/file.list
+            scripts/install.sh
+            scripts/uninstall.sh
+            version
+          )
+          for required_file in "${required_files[@]}"; do
+            if [[ ! -f "${package_root}/${required_file}" ]]; then
+              printf 'Required package file is missing: %s\n' "${required_file}" >&2
+              exit 1
+            fi
+          done
+
+          source_date_epoch="$(git show -s --format=%ct HEAD)"
+          if [[ ! "${source_date_epoch}" =~ ^[0-9]+$ ]]; then
+            printf 'Could not determine a reproducible package timestamp.\n' >&2
+            exit 1
+          fi
+
+          find "${package_root}" -type d -exec chmod 0755 {} +
+          find "${package_root}" -type f -exec chmod 0644 {} +
+          chmod 0755 \
+            "${package_root}/scripts/install.sh" \
+            "${package_root}/scripts/uninstall.sh"
+          find "${package_root}" -exec touch --date="@${source_date_epoch}" {} +
+
+          (
+            cd -- "${package_workspace}"
+            find "${EXTENSION_NAME}" -type f -print0 \
+              | sort -z \
+              | xargs -0 zip -0 -X -q "${package_path}"
+          )
+
+          expected_entries="${package_workspace}/expected.entries"
+          actual_entries="${package_workspace}/actual.entries"
+          {
+            git ls-files -- "${runtime_paths[@]}" | sed "s#^#${EXTENSION_NAME}/#"
+            printf '%s/version\n' "${EXTENSION_NAME}"
+          } | sort > "${expected_entries}"
+          unzip -Z1 "${package_path}" | sed '/\/$/d' | sort > "${actual_entries}"
+
+          diff -u "${expected_entries}" "${actual_entries}"
+          unzip -tqq "${package_path}"
+
+          forbidden_pattern='(^|/)(\.git|\.github|\.idea|\.vscode|config|dist|docs|fixtures|tests)(/|$)|(^|/)(\.env($|\.)|[^/]+\.env$|credentials\.key$)|(^|/)[^/]+(\.log|\.tmp|\.bak|~)$'
+          if grep -E "${forbidden_pattern}" "${actual_entries}"; then
+            printf 'The package contains a forbidden development or secret path.\n' >&2
+            exit 1
+          fi
+
+          printf 'Verified package contents:\n'
+          cat "${actual_entries}"
+          sha256sum "${package_path}"
+          printf 'package_name=%s\n' "${package_name}" >> "${GITHUB_OUTPUT}"
+          printf 'package_path=%s\n' "${package_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Attach package to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_NAME: ${{ steps.package.outputs.package_name }}
+          PACKAGE_PATH: ${{ steps.package.outputs.package_path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_assets="$(gh release view "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --json assets \
+            --jq '.assets[].name')"
+          if grep -Fxq -- "${PACKAGE_NAME}" <<< "${release_assets}"; then
+            printf 'Release asset already exists and will not be overwritten: %s\n' "${PACKAGE_NAME}" >&2
+            exit 1
+          fi
+
+          gh release upload "${RELEASE_TAG}" "${PACKAGE_PATH}" \
+            --repo "${GITHUB_REPOSITORY}"

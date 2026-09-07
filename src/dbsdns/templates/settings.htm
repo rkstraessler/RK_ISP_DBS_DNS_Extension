@@ -1,0 +1,58 @@
+<div class='page-header'>
+    <h1>{tmpl_var name='settings_title_txt'}</h1>
+</div>
+
+<p>{tmpl_var name='settings_description_txt'}</p>
+
+<tmpl_if name='settings_successful'>
+    <div class='alert alert-success' role='status'>{tmpl_var name='settings_saved_txt'}</div>
+</tmpl_if>
+
+<tmpl_if name='settings_error'>
+    <div class='alert alert-danger' role='alert'>{tmpl_var name='settings_error'}</div>
+</tmpl_if>
+
+<tmpl_if name='connection_test_successful'>
+    <div class='alert alert-success' role='status'>{tmpl_var name='connection_test_success_txt'}</div>
+</tmpl_if>
+
+<tmpl_if name='connection_test_error'>
+    <div class='alert alert-danger' role='alert'>{tmpl_var name='connection_test_error'}</div>
+</tmpl_if>
+
+<div class='{tmpl_var name="connection_status_class"}' role='status'>
+    <strong>{tmpl_var name='settings_source_txt'}:</strong> {tmpl_var name='configuration_source'}<br>
+    <strong>{tmpl_var name='settings_connection_status_txt'}:</strong> {tmpl_var name='connection_status'}
+</div>
+
+<div class='form-horizontal'>
+    <div class='form-group'>
+        <label for='wsdl_url' class='col-sm-3 control-label'>{tmpl_var name='settings_wsdl_url_txt'}</label>
+        <div class='col-sm-9'>
+            <input class='form-control' type='url' name='wsdl_url' id='wsdl_url' value="{tmpl_var name='wsdl_url'}" maxlength='2048' autocomplete='off' required='required'>
+        </div>
+    </div>
+    <div class='form-group'>
+        <label for='username' class='col-sm-3 control-label'>{tmpl_var name='settings_username_txt'}</label>
+        <div class='col-sm-9'>
+            <input class='form-control' type='text' name='username' id='username' value="{tmpl_var name='username'}" maxlength='255' autocomplete='off' required='required'>
+        </div>
+    </div>
+    <div class='form-group'>
+        <label for='password' class='col-sm-3 control-label'>{tmpl_var name='settings_password_txt'}</label>
+        <div class='col-sm-9'>
+            <input class='form-control' type='password' name='password' id='password' value='' maxlength='4096' autocomplete='new-password' placeholder="{tmpl_var name='password_placeholder'}">
+            <span class='help-block'>{tmpl_var name='settings_password_help_txt'}</span>
+        </div>
+    </div>
+</div>
+
+<input type='hidden' name='_csrf_id' value='{tmpl_var name="_csrf_id"}'>
+<input type='hidden' name='_csrf_key' value='{tmpl_var name="_csrf_key"}'>
+
+<div class='clear'>
+    <div class='right'>
+        <button class='btn btn-default formbutton-success' type='button' data-submit-form='pageForm' data-form-action='dbsdns/settings.php?action=save'>{tmpl_var name='btn_save_txt'}</button>
+        <button class='btn btn-default formbutton-default' type='button' data-submit-form='pageForm' data-form-action='dbsdns/settings.php?action=test'>{tmpl_var name='connection_test_button_txt'}</button>
+    </div>
+</div>

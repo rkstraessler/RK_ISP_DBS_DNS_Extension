@@ -1,0 +1,15 @@
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+.env
+.env.*
+credentials.key
+
+dist/
+/*.pkg
+/*.tar.gz
+/*.zip
+/SHA256SUMS

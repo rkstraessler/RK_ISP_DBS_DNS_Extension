@@ -1,0 +1,22 @@
+--- a/dns/dns_rr_del.php
++++ b/dns/dns_rr_del.php
+@@ -48,1 +48,18 @@
++$dbsdnsRequestedRecordId = isset($_REQUEST['id']) && is_scalar($_REQUEST['id'])
++	? trim((string)$_REQUEST['id'])
++	: '';
++
++if(strncmp($dbsdnsRequestedRecordId, 'dbs1_', 5) === 0) {
++	$dbsdnsIntegrationFile = ISPC_WEB_PATH . '/dbsdns/integration/dns_rr_del.inc.php';
++
++	if(!is_file($dbsdnsIntegrationFile)) {
++		$app->error($app->lng('error_no_delete_permission'));
++	}
++
++	require $dbsdnsIntegrationFile;
++	exit;
++}
++
++unset($dbsdnsRequestedRecordId);
++
+ $app->uses('tpl,tform,tform_actions,validate_dns');
+

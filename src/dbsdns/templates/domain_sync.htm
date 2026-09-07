@@ -1,0 +1,42 @@
+<div class='page-header'>
+    <h1>{tmpl_var name='domain_sync_title_txt'}</h1>
+</div>
+
+<p>{tmpl_var name='domain_sync_description_txt'}</p>
+
+<tmpl_if name='sync_successful'>
+    <div class='alert alert-success' role='alert'>
+        {tmpl_var name='domain_sync_success_txt'}
+        <ul>
+            <li>{tmpl_var name='domain_sync_total_txt'}: {tmpl_var name='sync_total'}</li>
+            <li>{tmpl_var name='domain_sync_created_txt'}: {tmpl_var name='sync_created'}</li>
+            <li>{tmpl_var name='domain_sync_updated_txt'}: {tmpl_var name='sync_updated'}</li>
+            <li>{tmpl_var name='domain_sync_missing_txt'}: {tmpl_var name='sync_missing'}</li>
+        </ul>
+    </div>
+</tmpl_if>
+
+<tmpl_if name='sync_error'>
+    <div class='alert alert-danger' role='alert'>{tmpl_var name='sync_error'}</div>
+</tmpl_if>
+
+<div class='table-wrapper marginTop15'>
+    <table class='table'>
+        <tbody>
+            <tr><th>{tmpl_var name='domain_sync_inventory_total_txt'}</th><td>{tmpl_var name='inventory_total'}</td></tr>
+            <tr><th>{tmpl_var name='domain_sync_inventory_present_txt'}</th><td>{tmpl_var name='inventory_present'}</td></tr>
+            <tr><th>{tmpl_var name='domain_sync_inventory_missing_txt'}</th><td>{tmpl_var name='inventory_missing'}</td></tr>
+            <tr><th>{tmpl_var name='domain_sync_last_synced_txt'}</th><td>{tmpl_var name='inventory_last_synced'}</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<input type='hidden' name='_csrf_id' value='{tmpl_var name="_csrf_id"}'>
+<input type='hidden' name='_csrf_key' value='{tmpl_var name="_csrf_key"}'>
+<input type='hidden' name='domain_sync' value='1'>
+
+<div class='clear'>
+    <div class='right'>
+        <button class='btn btn-default formbutton-success' type='button' value='{tmpl_var name="domain_sync_button_txt"}' data-submit-form='pageForm' data-form-action='dbsdns/domain_sync.php'>{tmpl_var name='domain_sync_button_txt'}</button>
+    </div>
+</div>

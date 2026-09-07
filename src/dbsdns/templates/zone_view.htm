@@ -1,0 +1,61 @@
+<link rel="stylesheet" href="dbsdns/css/dbsdns-ui.css" />
+
+<div class="dbsdns-mutation-root" data-dbsdns-zone="{tmpl_var name='cache_id'}">
+<div class="page-header">
+    <h1>{tmpl_var name="dbsdns_zone_title_txt"} - {tmpl_var name="origin"}</h1>
+</div>
+
+<tmpl_if name="show_info_msg"><div class="alert alert-success">{tmpl_var name="show_info_msg"}</div></tmpl_if>
+<tmpl_if name="show_warning_msg"><div class="alert alert-warning">{tmpl_var name="show_warning_msg"}</div></tmpl_if>
+<tmpl_if name="show_error_msg"><div class="alert alert-danger">{tmpl_var name="show_error_msg"}</div></tmpl_if>
+<tmpl_if name="dbsdns_readonly_notice_txt"><div class="alert alert-notification">{tmpl_var name="dbsdns_readonly_notice_txt"}</div></tmpl_if>
+
+<ul class="nav nav-tabs" role="tablist">
+    <li role="presentation" class="active"><a href="#dbsdns-records" aria-controls="dbsdns-records" role="tab" data-toggle="tab">{tmpl_var name="dbsdns_records_tab_txt"}</a></li>
+    <li role="presentation"><a href="#dbsdns-zone-settings" aria-controls="dbsdns-zone-settings" role="tab" data-toggle="tab">{tmpl_var name="dbsdns_zone_settings_tab_txt"}</a></li>
+</ul>
+
+<div class="tab-content marginTop15">
+    <div role="tabpanel" class="tab-pane active" id="dbsdns-records">
+        <div class="dbsdns-blocking-region dbsdns-records-region" data-dbsdns-region="records" aria-busy="false">
+            <div class="dbsdns-loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+                <span class="dbsdns-loading-spinner" aria-hidden="true"></span>
+                <span>{tmpl_var name="loading_txt"}</span>
+            </div>
+            {tmpl_var name="records_html"}
+        </div>
+    </div>
+    <div role="tabpanel" class="tab-pane dbsdns-blocking-region" id="dbsdns-zone-settings" data-dbsdns-region="zone-settings" aria-busy="false">
+        <div class="dbsdns-loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+            <span class="dbsdns-loading-spinner" aria-hidden="true"></span>
+            <span>{tmpl_var name="loading_txt"}</span>
+        </div>
+        <p class="fieldset-legend">{tmpl_var name="dbsdns_zone_settings_txt"}</p>
+        <div class="form-horizontal">
+            <div class="form-group"><label class="col-sm-3 control-label">{tmpl_var name="dbsdns_server_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" value="{tmpl_var name='server'}" disabled="disabled" /></div></div>
+            <div class="form-group"><label class="col-sm-3 control-label">{tmpl_var name="dbsdns_client_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" value="{tmpl_var name='client'}" disabled="disabled" /></div></div>
+            <div class="form-group"><label class="col-sm-3 control-label">{tmpl_var name="dbsdns_origin_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" value="{tmpl_var name='origin'}" disabled="disabled" /></div></div>
+            <div class="form-group"><label class="col-sm-3 control-label">{tmpl_var name="dbsdns_primary_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" value="{tmpl_var name='primary'}" disabled="disabled" /></div></div>
+            <div class="form-group"><label for="mbox" class="col-sm-3 control-label">{tmpl_var name="dbsdns_mbox_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" name="mbox" id="mbox" value="{tmpl_var name='mbox'}" maxlength="254" /></div></div>
+            <div class="form-group"><label for="refresh" class="col-sm-3 control-label">{tmpl_var name="dbsdns_refresh_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" name="refresh" id="refresh" value="{tmpl_var name='refresh'}" maxlength="10" /></div></div>
+            <div class="form-group"><label for="retry" class="col-sm-3 control-label">{tmpl_var name="dbsdns_retry_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" name="retry" id="retry" value="{tmpl_var name='retry'}" maxlength="10" /></div></div>
+            <div class="form-group"><label for="expire" class="col-sm-3 control-label">{tmpl_var name="dbsdns_expire_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" name="expire" id="expire" value="{tmpl_var name='expire'}" maxlength="10" /></div></div>
+            <div class="form-group"><label for="minimum_ttl" class="col-sm-3 control-label">{tmpl_var name="dbsdns_minimum_ttl_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" name="minimum_ttl" id="minimum_ttl" value="{tmpl_var name='minimum_ttl'}" maxlength="10" /></div></div>
+            <div class="form-group"><label for="ttl" class="col-sm-3 control-label">{tmpl_var name="dbsdns_ttl_txt"}</label><div class="col-sm-9"><input class="form-control" type="text" name="ttl" id="ttl" value="{tmpl_var name='ttl'}" maxlength="10" /></div></div>
+            <input type="hidden" name="id" value="{tmpl_var name='cache_id'}" />
+            <input type="hidden" name="zone_settings_token" value="{tmpl_var name='zone_settings_token'}" />
+            <input type="hidden" name="_csrf_id" value="{tmpl_var name='_csrf_id'}" />
+            <input type="hidden" name="_csrf_key" value="{tmpl_var name='_csrf_key'}" />
+            <div class="clear"><div class="right">
+                <button class="btn btn-default formbutton-success" type="button" data-dbsdns-mutation="zone-save" data-submit-form="pageForm" data-form-action="dbsdns/zone_settings.php">{tmpl_var name="btn_save_txt"}</button>
+                <button class="btn btn-default formbutton-default" type="button" data-load-content="dbsdns/zone_view.php?id={tmpl_var name='cache_id'}">{tmpl_var name="btn_cancel_txt"}</button>
+            </div></div>
+        </div>
+    </div>
+</div>
+
+<div class="clear"><div class="right"><button class="btn btn-default formbutton-default" type="button" data-load-content="dbsdns/zone_list.php">{tmpl_var name="dbsdns_back_to_zones_txt"}</button></div></div>
+</div>
+
+<script src="dbsdns/js/dbsdns-mutation-lock.js"></script>
+<script src="dbsdns/js/dbsdns-record-table.js"></script>

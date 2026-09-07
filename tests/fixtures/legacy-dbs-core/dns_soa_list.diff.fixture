@@ -1,0 +1,14 @@
+--- a/dns/dns_soa_list.php
++++ b/dns/dns_soa_list.php
+@@ -17,1 +17,10 @@
++$dbsdnsIntegrationFile = ISPC_WEB_PATH . '/dbsdns/integration/dns_soa_list.inc.php';
++
++if(is_file($dbsdnsIntegrationFile)) {
++	require $dbsdnsIntegrationFile;
++	exit;
++}
++
++unset($dbsdnsIntegrationFile);
++
+ $app->uses('listform_actions');
+

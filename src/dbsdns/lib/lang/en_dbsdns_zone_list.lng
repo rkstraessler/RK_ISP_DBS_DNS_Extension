@@ -1,0 +1,11 @@
+<?php
+
+$wb['list_head_txt'] = 'DNS zones';
+$wb['list_desc_txt'] = 'Available DNS zones';
+$wb['active_txt'] = 'Active';
+$wb['server_id_txt'] = 'Server';
+$wb['client_txt'] = 'Client';
+$wb['origin_txt'] = 'Zone';
+$wb['status_txt'] = 'Status';
+$wb['filter_txt'] = 'Filter';
+

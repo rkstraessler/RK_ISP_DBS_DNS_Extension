@@ -1,0 +1,54 @@
+<?php
+
+if(!isset($module['name']) || $module['name'] !== 'dns') {
+    return;
+}
+
+$providerDnsLanguage = $app->functions->check_language(
+    isset($_SESSION['s']['user']['language']) ? $_SESSION['s']['user']['language'] : 'en'
+);
+
+if(!in_array($providerDnsLanguage, array('de', 'en'), true)) {
+    $providerDnsLanguage = 'en';
+}
+
+$providerDnsLanguageFile = 'web/dbsdns/lib/lang/' . $providerDnsLanguage . '.lng';
+$app->load_language_file($providerDnsLanguageFile);
+$providerDnsTitle = $app->lng('Provider DNS Zones');
+$providerDnsItem = array(
+    'title' => $providerDnsTitle,
+    'target' => 'content',
+    'link' => 'dbsdns/provider_zone_list.php',
+    'html_id' => 'dbsdns_provider_zone_list'
+);
+$providerDnsMenuFound = false;
+
+if(!isset($module['nav']) || !is_array($module['nav'])) {
+    $module['nav'] = array();
+}
+
+foreach($module['nav'] as $providerDnsMenuIndex => $providerDnsMenu) {
+    if(isset($providerDnsMenu['title']) && $providerDnsMenu['title'] === 'DNS') {
+        $module['nav'][$providerDnsMenuIndex]['items'][] = $providerDnsItem;
+        $providerDnsMenuFound = true;
+        break;
+    }
+}
+
+if(!$providerDnsMenuFound) {
+    $module['nav'][] = array(
+        'title' => 'DNS',
+        'open' => 1,
+        'items' => array($providerDnsItem)
+    );
+}
+
+unset(
+    $providerDnsLanguage,
+    $providerDnsLanguageFile,
+    $providerDnsTitle,
+    $providerDnsItem,
+    $providerDnsMenuFound,
+    $providerDnsMenuIndex,
+    $providerDnsMenu
+);

@@ -1,0 +1,12 @@
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.sh text eol=lf
+*.patch text eol=lf
+*.php text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.list text eol=lf
+tests/fixtures/**/*.php text eol=lf
+migration/**/*.php text eol=lf
+tests/fixtures/**/*.fixture text eol=lf

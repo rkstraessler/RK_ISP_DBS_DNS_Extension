@@ -1,0 +1,11 @@
+<?php
+
+$wb['toolsarea_head_txt'] = 'DNS-Record hinzufügen';
+$wb['list_head_txt'] = 'DNS-Records';
+$wb['active_txt'] = 'Aktiv';
+$wb['type_txt'] = 'Typ';
+$wb['name_txt'] = 'Name';
+$wb['data_txt'] = 'Wert / Ziel';
+$wb['aux_txt'] = 'Priorität';
+$wb['ttl_txt'] = 'TTL';
+$wb['filter_txt'] = 'Filter';

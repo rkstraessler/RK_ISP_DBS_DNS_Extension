@@ -1,0 +1,134 @@
+.dbsdns-mutation-root,
+.dbsdns-blocking-region {
+    position: relative;
+}
+
+.dbsdns-records-region {
+    min-width: 0;
+}
+
+.dbsdns-records-region .table-wrapper,
+.dbsdns-records-region table {
+    width: 100%;
+}
+
+.dbsdns-records-region .dbsdns-record-table-wrapper {
+    overflow-x: auto;
+}
+
+.dbsdns-records-region .dbsdns-record-table {
+    min-width: 720px;
+    table-layout: fixed;
+}
+
+.dbsdns-record-col-active {
+    width: 68px;
+}
+
+.dbsdns-record-col-type {
+    width: 76px;
+}
+
+.dbsdns-record-col-name {
+    width: 22%;
+}
+
+.dbsdns-record-col-aux {
+    width: 72px;
+}
+
+.dbsdns-record-col-ttl {
+    width: 88px;
+}
+
+.dbsdns-record-col-actions {
+    width: 96px;
+}
+
+.dbsdns-record-table th,
+.dbsdns-record-table td {
+    min-width: 0;
+}
+
+.dbsdns-record-table .form-control {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+}
+
+.dbsdns-record-cell {
+    overflow: hidden;
+}
+
+.dbsdns-record-value {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dbsdns-record-actions {
+    white-space: nowrap;
+}
+
+.dbsdns-record-actions .btn {
+    float: none;
+}
+
+.dbsdns-loading-overlay {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.86);
+    bottom: 0;
+    color: #3e474e;
+    display: none;
+    flex-direction: column;
+    font-weight: 600;
+    gap: 10px;
+    justify-content: center;
+    left: 0;
+    min-height: 96px;
+    position: absolute;
+    right: 0;
+    text-align: center;
+    top: 0;
+    z-index: 30;
+}
+
+.dbsdns-blocking-region.is-dbsdns-loading > .dbsdns-loading-overlay {
+    display: flex;
+}
+
+.dbsdns-loading-spinner {
+    animation: dbsdns-spin 0.8s linear infinite;
+    border: 3px solid #d5dadd;
+    border-radius: 50%;
+    border-top-color: #cc151c;
+    height: 28px;
+    width: 28px;
+}
+
+.dbsdns-mutation-root.is-dbsdns-pending {
+    cursor: progress;
+}
+
+.dbsdns-mutation-root [aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.dbsdns-record-form .help-block {
+    margin-bottom: 0;
+}
+
+@keyframes dbsdns-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dbsdns-loading-spinner {
+        animation-duration: 1.6s;
+    }
+}
